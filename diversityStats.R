@@ -11,13 +11,13 @@ get_abundance <- function(df) {
   
   df <- 
     mutate(df, id = paste(Species, Interval, sep="")) %>%
-    mutate(df, freq = viral_read_count/Sequences) %>%
+    mutate(df, freq = viral_read_count/(`Number of paired-end reads`*2)) %>%
     mutate(df, present = ifelse(freq>0, 1, 0)) %>%
     mutate(Interval=as.character(Interval)) %>%
     left_join(samples_per_pool) %>%
     mutate(Interval=as.integer(Interval)) %>%
     left_join(total_virus_reads) %>%
-    mutate(df, normalised_reads = viral_read_count/`Number of individuals`)
+    mutate(df, normalised_reads = viral_read_count/(`Number of paired-end reads`*2)/`Number of individuals`)
   
   return(df)
   
@@ -156,3 +156,4 @@ plot_diversity_stats <- function(comm_mat) {
   return(figure)
   
 }
+
