@@ -159,6 +159,10 @@ annotate_and_filter_contingency_table <-
 data <- annotate_and_filter_contingency_table(contingency_table, blast_results_table) %>%
   filter(virus_family != "NA")
 
+samples_per_pool <- read_csv("sample_per_pool.csv")
+samples_per_pool$Interval <- as.character(samples_per_pool$Interval)
+samples_per_pool <-
+  mutate(samples_per_pool, id = paste(Species, Interval, sep=""))
 
 
 # relative abundance by virus group/family
@@ -246,6 +250,7 @@ get_relAbundance_s <- function(list_of_viruses, data) {
   viral_reads <- c(0)
   interval <- c(0)
   species <- ("x")
+  type <- ("x")
   
   for (f in 1:length(list_of_viruses)) {
     d <- data%>%
@@ -253,6 +258,9 @@ get_relAbundance_s <- function(list_of_viruses, data) {
         
     if (dim(d)[1] > 0) {
       for (i in 2:14) {
+        
+        virus_type <- (as.character(unique(d[,15]))[1])
+        
         total <- 0
         if (!is.na(as.numeric(unlist(data_subset[, i])))) {
           total <- sum(data_subset[, i])
@@ -272,6 +280,7 @@ get_relAbundance_s <- function(list_of_viruses, data) {
         viral_reads <- c(viral_reads, ssRNApos)
         species <- c(species, parts[[1]][4])
         interval <- c(interval, parts[[1]][5])
+        type <- c(type, virus_type)
         
       }
     }
@@ -284,11 +293,14 @@ get_relAbundance_s <- function(list_of_viruses, data) {
       viral_read_count = viral_reads,
       total_read_count = total_reads,
       Species = species,
-      Interval = interval
+      Interval = interval,
+      type = type
+      
     )
   
-  total_virus_reads.temp <- total_virus_reads %>%
-    select(Interval, Sequences, Species)
+  total_virus_reads.temp <- samples_per_pool %>%
+    mutate(Interval=as.integer(Interval)) %>% 
+    select(Interval, `Number of cleaned viral reads`, Species, `Number of paired-end reads`)
   
   df <- na.omit(df[2:length(df[, 1]),]) %>%
     mutate(Interval=as.integer(Interval)) %>% 
