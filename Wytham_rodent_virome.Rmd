@@ -23,8 +23,6 @@ source("diversityStats.R")
 
 MNKA <- read_csv("../rodent_borne_viruses/wytham_woods_rodents/MNKA_wytham_since_Nov2016.csv")
 
-length(unique(all_virus_species.df$virus_species))
-
 ```
 
 ## Raw viral abundance
@@ -35,32 +33,34 @@ length(unique(all_virus_species.df$virus_species))
 viral_abundance <-
   total_virus_reads %>%
   mutate(Interval = as.character(Interval)) %>%
-  left_join(samples_per_pool)
+  left_join(samples_per_pool) %>%
+  mutate(Species = fct_relevel(Species, c("AS", "AF", "MG")))
 
-viral_abundance$Species <- factor(viral_abundance$Species, levels=c("AS", "AF", "MG"))
+# viral_abundance$Species <- factor(viral_abundance$Species, levels=c("AS", "AF", "MG"))
 
 
 options(scipen = 999)
 
 raw_abundance.p <- 
-viral_abundance %>%
-  ggplot(aes(dmy(collection_date), (Sequences), 
+  viral_abundance %>%
+  ggplot(aes(dmy(collection_date), `Proportion of viral reads`, 
              colour=Species, fill=Species, group=Species))+
   geom_point()+geom_line()+
   theme_bw()+
   xlab("Time period") +
   scale_color_manual(values=c("#66C2A5", "#8DA0CB", "#FC8D62")) +
   facet_grid(~Species)+
-  geom_text(aes(label=`Number of individuals`, y = (Sequences) + 0.1),
+  geom_text(aes(label=`Number of individuals`, y = (`Proportion of viral reads`) + 0.001),
             position = position_dodge(0.9),
             vjust = -0.9, colour="black")+
-  scale_y_continuous(limits=c(0,3500000))+
+  scale_y_continuous(limits=c(0,0.07))+
   scale_x_date(limits =c(dmy("20/01/2017"), dmy("15/12/2017")))+
-  ylab("Read abundance") + xlab("Time")+
+  ylab("Proportion of viral reads") + xlab("Time")+
   theme(legend.position = "none")
 
-# ggsave("../Wytham_rodent_manuscript/figures/Raw_abundance_2021-11-30.pdf", height = 2, width = 6, plot = raw_abundance.p)
+raw_abundance.p
 
+# ggsave("../Wytham_rodent_manuscript/revisions/new/Raw_abundance_2022-06-10.pdf", height = 2.5, width = 6.5, plot = raw_abundance.p)
 
 # Statistics
 
@@ -78,31 +78,32 @@ print(paste0("median reads per AS pool ", AS_mean))
 print(paste0("median reads per AF pool ", AF_mean))
 print(paste0("median reads per MG pool ", MG_mean))
 
-prop_viral_reads <- (sum(total_virus_reads$Sequences)/335917017)*100
+# proportion of viral reads (denominator total raw reads i.e. paired-end x 2)
+prop_viral_reads <- (sum(total_virus_reads$Sequences)/(2*355917017))*100
 
 sum(total_virus_reads$Sequences)
 
-print(paste0("Percentage viral reads ", round(prop_viral_reads,digits = 2), "%"))
+print(paste0("Percentage viral reads ", round(prop_viral_reads,digits = 4), "%"))
 
 length(unique(all_virus.df$virus_family))
 
 all.hist <-
-all_virus_species.df %>%
-  filter(viral_read_count/Sequences >= 1/1000000) %>%
+  all_virus_species.df %>%
+  filter(viral_read_count/(`Number of paired-end reads`*2) >= 1/10000000) %>%
   group_by(virus_species, Species) %>%
   summarise(count = n()) %>%
   ggplot(aes(count)) + geom_histogram(fill="grey", colour="black", bins = 5, aes(y = stat(count) / sum(count)))  + theme_bw() + xlab("Number of intervals detected") + ylab("Proportion")  + ggtitle("All") + theme(plot.title = element_text(hjust = 0.5)) + scale_y_continuous(limits=c(0,0.5))
 
 vert.hist <-
-verterb_virus_species.df %>%
-  filter(viral_read_count/Sequences >= 1/1000000) %>%
+  verterb_virus_species.df %>%
+  filter(viral_read_count/(`Number of paired-end reads`*2) >= 1/10000000) %>%
   group_by(virus_species, Species) %>%
   summarise(count = n()) %>%
   ggplot(aes(x=count)) + geom_histogram(fill="grey", colour="black", bins = 5, aes(y = stat(count) / sum(count))) + xlab("Number of intervals detected") + ylab("Proportion") + theme_bw()  + ggtitle("Vertebrate-associated") + theme(plot.title = element_text(hjust = 0.5)) + scale_y_continuous(limits=c(0,0.5))
 
 phage.hist <-
-phage_species.df %>%
-  filter(viral_read_count/Sequences >= 1/1000000) %>%
+  phage_species.df %>%
+  filter(viral_read_count/(`Number of paired-end reads`*2) >= 1/10000000) %>%
   group_by(virus_species, Species) %>%
   summarise(count = n()) %>%
   ggplot(aes(x=count)) + geom_histogram(fill="grey", colour="black", bins = 5, aes(y = stat(count) / sum(count))) + xlab("Number of intervals detected") + ylab("Proportion") + theme_bw() + ggtitle("Bacteriophage") +  theme(plot.title = element_text(hjust = 0.5)) + scale_y_continuous(limits=c(0,0.5)) 
@@ -112,50 +113,51 @@ prop_vs_n_intervals
 
 
 all.interval.hist <-
-all_virus_species.df %>%
-  filter(viral_read_count/Sequences >= 1/1000000) %>%
+  all_virus_species.df %>%
+  filter(viral_read_count/(`Number of paired-end reads`*2) >= 1/10000000) %>%
   group_by(Interval) %>%
   summarise(count = n()) %>%
-  ggplot(aes(x=Interval)) + geom_col(fill="grey", colour="black", aes(y = (count)/sum(count)))  + theme_bw() + xlab("Sampling period") + ylab("Proportion")  + ggtitle("All") + theme(plot.title = element_text(hjust = 0.5)) + scale_y_continuous(limits=c(0,0.31))
+  ggplot(aes(x=Interval)) + geom_col(fill="grey", colour="black", aes(y = (count)/sum(count)))  + theme_bw() + xlab("Sampling period") + ylab("Proportion")  + ggtitle("All") + theme(plot.title = element_text(hjust = 0.5)) + scale_y_continuous(limits=c(0,0.4))
 
 vert.interval.hist <-
-verterb_virus_species.df %>%
-  filter(viral_read_count/Sequences >= 1/1000000) %>%
+  verterb_virus_species.df %>%
+  filter(viral_read_count/(`Number of paired-end reads`*2) >= 1/10000000) %>%
   group_by(Interval) %>%
   summarise(count = n()) %>%
-  ggplot(aes(x=Interval)) + geom_col(fill="grey", colour="black", aes(y = (count)/sum(count)))  + theme_bw() + xlab("Sampling period") + ylab("Proportion")  + ggtitle("Vertebrate-associated") + theme(plot.title = element_text(hjust = 0.5)) + scale_y_continuous(limits=c(0,0.31))
+  ggplot(aes(x=Interval)) + geom_col(fill="grey", colour="black", aes(y = (count)/sum(count)))  + theme_bw() + xlab("Sampling period") + ylab("Proportion")  + ggtitle("Vertebrate-associated") + theme(plot.title = element_text(hjust = 0.5)) + scale_y_continuous(limits=c(0,0.4))
 
 phage.interval.hist <-
-phage_species.df %>%
-  filter(viral_read_count/Sequences >= 1/1000000) %>%
+  phage_species.df %>%
+  filter(viral_read_count/(`Number of paired-end reads`*2) >= 1/10000000)%>%
   group_by(Interval) %>%
   summarise(count = n()) %>%
-  ggplot(aes(x=Interval)) + geom_col(fill="grey", colour="black", aes(y = (count)/sum(count)))  + theme_bw() + xlab("Sampling period") + ylab("Proportion")  + ggtitle("Bacteriophage") + theme(plot.title = element_text(hjust = 0.5)) + scale_y_continuous(limits=c(0,0.31))
+  ggplot(aes(x=Interval)) + geom_col(fill="grey", colour="black", aes(y = (count)/sum(count)))  + theme_bw() + xlab("Sampling period") + ylab("Proportion")  + ggtitle("Bacteriophage") + theme(plot.title = element_text(hjust = 0.5)) + scale_y_continuous(limits=c(0,0.4))
 
 prop_virus_vs_sampling_period <-
-ggarrange(all.interval.hist, vert.interval.hist, phage.interval.hist, nrow=1)
+  ggarrange(all.interval.hist, vert.interval.hist, phage.interval.hist, nrow=1)
 prop_virus_vs_sampling_period
 combined_summary <- ggarrange(prop_vs_n_intervals, prop_virus_vs_sampling_period, nrow=2)
 combined_summary
 
-# ggsave("../Wytham_rodent_manuscript/figures/prop_virus_detected_vs_number_of_intervals.pdf", combined_summary, height=5, width=8)
+# ggsave("../Wytham_rodent_manuscript/revisions/new/prop_virus_detected_vs_number_of_intervals.pdf", combined_summary, height=5, width=8)
 
 ggarrange(prop_vs_n_intervals, prop_virus_vs_sampling_period, nrow=2)
 
+
+phage_species.df %>%
+  filter(viral_read_count/((`Number of paired-end reads`)*2) >= 1/10000000)%>%
+  group_by(virus_species, Species) %>%
+  summarise(count = n()) %>%
+  group_by(count) %>%
+  summarise(count2 = n())
+
+
 all_virus_species.df %>%
-  filter(viral_read_count/Sequences >= 1/1000000) %>%
+  filter(viral_read_count/((`Number of paired-end reads`)*2) >= 1/10000000)%>%
   group_by(Interval) %>%
   summarise(count = n()) %>%
-  filter(Interval >= 3) %>%
+  filter(Interval >= 1)%>%
   summarise(sum = sum(count))
-  
-
-116/186
-
-104/147
-
-311/418
-
 
 
 ```
@@ -164,104 +166,104 @@ all_virus_species.df %>%
 
 ```{r}
 
-# filtering the contingency table for contigs where abundance is greater than 1 per million read threshold
+# filtering the contingency table for contigs where abundance is greater than 1 per 10 million read threshold
 
-contigency_table.s <-
-    annotate_and_filter_contingency_table(contingency_table, blast_results_table) %>%
-
-    mutate(AS1_abundance =
-             round(WTCHG_714232_72815161_AS_1 / (subset(
-               total_virus_reads, Species == "AS" &
-                 Interval == 1
-             ))$Sequences, digits=8)) %>%
-    mutate(AS2_abundance =
-             round(WTCHG_714232_72835163_AS_2 / (subset(
-               total_virus_reads, Species == "AS" &
-                 Interval == 2
-             ))$Sequences, digits=8)) %>%
-    mutate(AS3_abundance =
-             round(WTCHG_714232_72865166_AS_3 / (subset(
-               total_virus_reads, Species == "AS" &
-                 Interval == 3
-             ))$Sequences, digits=8)) %>%
-    mutate(AS4_abundance =
-             round(WTCHG_714232_71935169_AS_4 / (subset(
-               total_virus_reads, Species == "AS" &
-                 Interval == 4
-             ))$Sequences, digits=8)) %>%
-    mutate(AS5_abundance =
-             round(WTCHG_714232_71965172_AS_5 / (subset(
-               total_virus_reads, Species == "AS" &
-                 Interval == 5
-             ))$Sequences, digits=8)) %>%
-    mutate(MG1_abundance =
-             round(WTCHG_714232_72825162_MG_1 / (subset(
-               total_virus_reads, Species == "MG" &
-                 Interval == 1
-             ))$Sequences, digits=8)) %>%
-    mutate(MG2_abundance =
-             round(WTCHG_714232_72845164_MG_2 / (subset(
-               total_virus_reads, Species == "MG" &
-                 Interval == 2
-             ))$Sequences, digits=8)) %>%
-    mutate(MG3_abundance =
-             round(WTCHG_714232_72875167_MG_3 / (subset(
-               total_virus_reads, Species == "MG" &
-                 Interval == 3
-             ))$Sequences, digits=8)) %>%
-    mutate(MG4_abundance =
-             round(WTCHG_714232_71945170_MG_4 / (subset(
-               total_virus_reads, Species == "MG" &
-                 Interval == 4
-             ))$Sequences, digits=8)) %>%
-    mutate(MG5_abundance =
-             round(WTCHG_714232_71975173_MG_5 / (subset(
-               total_virus_reads, Species == "MG" &
-                 Interval == 5
-             ))$Sequences, digits=8)) %>%
-    mutate(AF3_abundance =
-             round(WTCHG_714232_72855165_AF_3 / (subset(
-               total_virus_reads, Species == "AF" &
-                 Interval == 3
-             ))$Sequences, digits=8)) %>%
-    mutate(AF4_abundance =
-             round(WTCHG_714232_72885168_AF_4 / (subset(
-               total_virus_reads, Species == "AF" &
-                 Interval == 4
-             ))$Sequences, digits=8)) %>%
-    mutate(AF5_abundance =
-             round(WTCHG_714232_71955171_AF_5 / (subset(
-               total_virus_reads, Species == "AF" &
-                 Interval == 5
-             ))$Sequences, digits=8)) %>%
-    
-    mutate(WTCHG_714232_72815161_AS_1 =
-             ifelse((AS1_abundance <= (1 / 1000000)), 0, WTCHG_714232_72815161_AS_1)) %>%
-    mutate(WTCHG_714232_72835163_AS_2 =
-             ifelse((AS2_abundance <= (1 / 1000000)), 0, WTCHG_714232_72835163_AS_2)) %>%
-    mutate(WTCHG_714232_72865166_AS_3 =
-             ifelse((AS3_abundance <= (1 / 1000000)), 0, WTCHG_714232_72865166_AS_3)) %>%
-    mutate(WTCHG_714232_71935169_AS_4 =
-             ifelse((AS4_abundance <= (1 / 1000000)), 0, WTCHG_714232_71935169_AS_4)) %>%
-    mutate(WTCHG_714232_71965172_AS_5 =
-             ifelse((AS5_abundance <= (1 / 1000000)), 0, WTCHG_714232_71965172_AS_5)) %>%
-    mutate(WTCHG_714232_72825162_MG_1 =
-             ifelse((MG1_abundance <= (1 / 1000000)), 0, WTCHG_714232_72825162_MG_1)) %>%
-    mutate(WTCHG_714232_72845164_MG_2 =
-             ifelse((MG2_abundance <= (1 / 1000000)), 0, WTCHG_714232_72845164_MG_2)) %>%
-    mutate(WTCHG_714232_72875167_MG_3 =
-             ifelse((MG3_abundance <= (1 / 1000000)), 0, WTCHG_714232_72875167_MG_3)) %>%
-    mutate(WTCHG_714232_71945170_MG_4 =
-             ifelse((MG4_abundance <= (1 / 1000000)), 0, WTCHG_714232_71945170_MG_4)) %>%
-    mutate(WTCHG_714232_71975173_MG_5 =
-             ifelse((MG5_abundance <= (1 / 1000000)), 0, WTCHG_714232_71975173_MG_5)) %>%
-    mutate(WTCHG_714232_72855165_AF_3 =
-             ifelse((AF3_abundance <= (1 / 1000000)), 0, WTCHG_714232_72855165_AF_3)) %>%
-    mutate(WTCHG_714232_72885168_AF_4 =
-             ifelse((AF4_abundance <= (1 / 1000000)), 0, WTCHG_714232_72885168_AF_4)) %>%
-    mutate(WTCHG_714232_71955171_AF_5 =
-             ifelse((AF5_abundance <= (1 / 1000000)), 0, WTCHG_714232_71955171_AF_5)) %>%
-
+contingency_table.s <-
+  annotate_and_filter_contingency_table(contingency_table, blast_results_table) %>%
+  
+  mutate(AS1_abundance =
+           round(WTCHG_714232_72815161_AS_1 / ((subset(
+             samples_per_pool, Species == "AS" &
+               Interval == 1
+           ))$`Number of paired-end reads`*2), digits=8)) %>%
+  mutate(AS2_abundance =
+           round(WTCHG_714232_72835163_AS_2 / ((subset(
+             samples_per_pool, Species == "AS" &
+               Interval == 2
+           ))$`Number of paired-end reads`*2), digits=8)) %>%
+  mutate(AS3_abundance =
+           round(WTCHG_714232_72865166_AS_3 / ((subset(
+             samples_per_pool, Species == "AS" &
+               Interval == 3
+           ))$`Number of paired-end reads`*2), digits=8)) %>%
+  mutate(AS4_abundance =
+           round(WTCHG_714232_71935169_AS_4 / ((subset(
+             samples_per_pool, Species == "AS" &
+               Interval == 4
+           ))$`Number of paired-end reads`*2), digits=8)) %>%
+  mutate(AS5_abundance =
+           round(WTCHG_714232_71965172_AS_5 / ((subset(
+             samples_per_pool, Species == "AS" &
+               Interval == 5
+           ))$`Number of paired-end reads`*2), digits=8)) %>%
+  mutate(MG1_abundance =
+           round(WTCHG_714232_72825162_MG_1 / ((subset(
+             samples_per_pool, Species == "MG" &
+               Interval == 1
+           ))$`Number of paired-end reads`*2), digits=8)) %>%
+  mutate(MG2_abundance =
+           round(WTCHG_714232_72845164_MG_2 / ((subset(
+             samples_per_pool, Species == "MG" &
+               Interval == 2
+           ))$`Number of paired-end reads`*2), digits=8)) %>%
+  mutate(MG3_abundance =
+           round(WTCHG_714232_72875167_MG_3 / ((subset(
+             samples_per_pool, Species == "MG" &
+               Interval == 3
+           ))$`Number of paired-end reads`*2), digits=8)) %>%
+  mutate(MG4_abundance =
+           round(WTCHG_714232_71945170_MG_4 / ((subset(
+             samples_per_pool, Species == "MG" &
+               Interval == 4
+           ))$`Number of paired-end reads`*2), digits=8)) %>%
+  mutate(MG5_abundance =
+           round(WTCHG_714232_71975173_MG_5 / ((subset(
+             samples_per_pool, Species == "MG" &
+               Interval == 5
+           ))$`Number of paired-end reads`*2), digits=8)) %>%
+  mutate(AF3_abundance =
+           round(WTCHG_714232_72855165_AF_3 / ((subset(
+             samples_per_pool, Species == "AF" &
+               Interval == 3
+           ))$`Number of paired-end reads`*2), digits=8)) %>%
+  mutate(AF4_abundance =
+           round(WTCHG_714232_72885168_AF_4 / ((subset(
+             samples_per_pool, Species == "AF" &
+               Interval == 4
+           ))$`Number of paired-end reads`*2), digits=8)) %>%
+  mutate(AF5_abundance =
+           round(WTCHG_714232_71955171_AF_5 / ((subset(
+             samples_per_pool, Species == "AF" &
+               Interval == 5
+           ))$`Number of paired-end reads`*2), digits=8)) %>%
+  
+  mutate(WTCHG_714232_72815161_AS_1 =
+           ifelse((AS1_abundance <= (1 / 10000000)), 0, WTCHG_714232_72815161_AS_1)) %>%
+  mutate(WTCHG_714232_72835163_AS_2 =
+           ifelse((AS2_abundance <= (1 / 10000000)), 0, WTCHG_714232_72835163_AS_2)) %>%
+  mutate(WTCHG_714232_72865166_AS_3 =
+           ifelse((AS3_abundance <= (1 / 10000000)), 0, WTCHG_714232_72865166_AS_3)) %>%
+  mutate(WTCHG_714232_71935169_AS_4 =
+           ifelse((AS4_abundance <= (1 / 10000000)), 0, WTCHG_714232_71935169_AS_4)) %>%
+  mutate(WTCHG_714232_71965172_AS_5 =
+           ifelse((AS5_abundance <= (1 / 10000000)), 0, WTCHG_714232_71965172_AS_5)) %>%
+  mutate(WTCHG_714232_72825162_MG_1 =
+           ifelse((MG1_abundance <= (1 / 10000000)), 0, WTCHG_714232_72825162_MG_1)) %>%
+  mutate(WTCHG_714232_72845164_MG_2 =
+           ifelse((MG2_abundance <= (1 / 10000000)), 0, WTCHG_714232_72845164_MG_2)) %>%
+  mutate(WTCHG_714232_72875167_MG_3 =
+           ifelse((MG3_abundance <= (1 / 10000000)), 0, WTCHG_714232_72875167_MG_3)) %>%
+  mutate(WTCHG_714232_71945170_MG_4 =
+           ifelse((MG4_abundance <= (1 / 10000000)), 0, WTCHG_714232_71945170_MG_4)) %>%
+  mutate(WTCHG_714232_71975173_MG_5 =
+           ifelse((MG5_abundance <= (1 / 10000000)), 0, WTCHG_714232_71975173_MG_5)) %>%
+  mutate(WTCHG_714232_72855165_AF_3 =
+           ifelse((AF3_abundance <= (1 / 10000000)), 0, WTCHG_714232_72855165_AF_3)) %>%
+  mutate(WTCHG_714232_72885168_AF_4 =
+           ifelse((AF4_abundance <= (1 / 10000000)), 0, WTCHG_714232_72885168_AF_4)) %>%
+  mutate(WTCHG_714232_71955171_AF_5 =
+           ifelse((AF5_abundance <= (1 / 10000000)), 0, WTCHG_714232_71955171_AF_5)) %>%
+  
   filter(type != "NA")
 
 ```
@@ -271,11 +273,12 @@ contigency_table.s <-
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, results='hide'}
 
 # total_virus_reads <- total_virus_reads %>% rename(Sequences = `# Sequences`)
+   
 
 get_venn_data <- function(blast_results_table, contingency_table, list) {
   blast_contigs_subset <- blast_results_table %>%
     filter(`length` >= 200)
-
+  
   
   contigency_table.s <-
     annotate_and_filter_contingency_table(contingency_table, blast_contigs_subset) %>%
@@ -296,128 +299,128 @@ get_venn_data <- function(blast_results_table, contingency_table, list) {
     rename(AF5 = WTCHG_714232_71955171_AF_5) %>%
     
     mutate(AS1_abundance =
-             round(AS1 / (subset(
-               total_virus_reads, Species == "AS" &
+             round(AS1 / ((subset(
+               samples_per_pool, Species == "AS" &
                  Interval == 1
-             ))$Sequences, digits=8)) %>%
+             ))$`Number of paired-end reads`*2), digits=8)) %>%
     mutate(AS2_abundance =
-             round(AS2 / (subset(
-               total_virus_reads, Species == "AS" &
+             round(AS2 / ((subset(
+               samples_per_pool, Species == "AS" &
                  Interval == 2
-             ))$Sequences, digits=8)) %>%
+             ))$`Number of paired-end reads`*2), digits=8)) %>%
     mutate(AS3_abundance =
-             round(AS3 / (subset(
-               total_virus_reads, Species == "AS" &
+             round(AS3 / ((subset(
+               samples_per_pool, Species == "AS" &
                  Interval == 3
-             ))$Sequences, digits=8)) %>%
+             ))$`Number of paired-end reads`*2), digits=8)) %>%
     mutate(AS4_abundance =
-             round(AS4 / (subset(
-               total_virus_reads, Species == "AS" &
+             round(AS4 / ((subset(
+               samples_per_pool, Species == "AS" &
                  Interval == 4
-             ))$Sequences, digits=8)) %>%
+             ))$`Number of paired-end reads`*2), digits=8)) %>%
     mutate(AS5_abundance =
-             round(AS5 / (subset(
-               total_virus_reads, Species == "AS" &
+             round(AS5 / ((subset(
+               samples_per_pool, Species == "AS" &
                  Interval == 5
-             ))$Sequences, digits=8)) %>%
+             ))$`Number of paired-end reads`*2), digits=8)) %>%
     mutate(MG1_abundance =
-             round(MG1 / (subset(
-               total_virus_reads, Species == "MG" &
+             round(MG1 / ((subset(
+               samples_per_pool, Species == "MG" &
                  Interval == 1
-             ))$Sequences, digits=8)) %>%
+             ))$`Number of paired-end reads`*2), digits=8)) %>%
     mutate(MG2_abundance =
-             round(MG2 / (subset(
-               total_virus_reads, Species == "MG" &
+             round(MG2 / ((subset(
+               samples_per_pool, Species == "MG" &
                  Interval == 2
-             ))$Sequences, digits=8)) %>%
+             ))$`Number of paired-end reads`*2), digits=8)) %>%
     mutate(MG3_abundance =
-             round(MG3 / (subset(
-               total_virus_reads, Species == "MG" &
+             round(MG3 / ((subset(
+               samples_per_pool, Species == "MG" &
                  Interval == 3
-             ))$Sequences, digits=8)) %>%
+             ))$`Number of paired-end reads`*2), digits=8)) %>%
     mutate(MG4_abundance =
-             round(MG4 / (subset(
-               total_virus_reads, Species == "MG" &
+             round(MG4 / ((subset(
+               samples_per_pool, Species == "MG" &
                  Interval == 4
-             ))$Sequences, digits=8)) %>%
+             ))$`Number of paired-end reads`*2), digits=8)) %>%
     mutate(MG5_abundance =
-             round(MG5 / (subset(
-               total_virus_reads, Species == "MG" &
+             round(MG5 / ((subset(
+               samples_per_pool, Species == "MG" &
                  Interval == 5
-             ))$Sequences, digits=8)) %>%
+             ))$`Number of paired-end reads`*2), digits=8)) %>%
     mutate(AF3_abundance =
-             round(AF3 / (subset(
-               total_virus_reads, Species == "AF" &
+             round(AF3 / ((subset(
+               samples_per_pool, Species == "AF" &
                  Interval == 3
-             ))$Sequences, digits=8)) %>%
+             ))$`Number of paired-end reads`*2), digits=8)) %>%
     mutate(AF4_abundance =
-             round(AF4 / (subset(
-               total_virus_reads, Species == "AF" &
+             round(AF4 / ((subset(
+               samples_per_pool, Species == "AF" &
                  Interval == 4
-             ))$Sequences, digits=8)) %>%
+             ))$`Number of paired-end reads`*2), digits=8)) %>%
     mutate(AF5_abundance =
-             round(AF5 / (subset(
-               total_virus_reads, Species == "AF" &
+             round(AF5 / ((subset(
+               samples_per_pool, Species == "AF" &
                  Interval == 5
-             ))$Sequences, digits=8)) %>%
+             ))$`Number of paired-end reads`*2), digits=8)) %>%
     
     mutate(AS1 =
-             ifelse((AS1_abundance <= (1 / 1000000)), 0, AS1)) %>%
+             ifelse((AS1_abundance <= (1 / 10000000)), 0, AS1)) %>%
     mutate(AS2 =
-             ifelse((AS2_abundance <= (1 / 1000000)), 0, AS2)) %>%
+             ifelse((AS2_abundance <= (1 / 10000000)), 0, AS2)) %>%
     mutate(AS3 =
-             ifelse((AS3_abundance <= (1 / 1000000)), 0, AS3)) %>%
+             ifelse((AS3_abundance <= (1 / 10000000)), 0, AS3)) %>%
     mutate(AS4 =
-             ifelse((AS4_abundance <= (1 / 1000000)), 0, AS4)) %>%
+             ifelse((AS4_abundance <= (1 / 10000000)), 0, AS4)) %>%
     mutate(AS5 =
-             ifelse((AS5_abundance <= (1 / 1000000)), 0, AS5)) %>%
+             ifelse((AS5_abundance <= (1 / 10000000)), 0, AS5)) %>%
     mutate(MG1 =
-             ifelse((MG1_abundance <= (1 / 1000000)), 0, MG1)) %>%
+             ifelse((MG1_abundance <= (1 / 10000000)), 0, MG1)) %>%
     mutate(MG2 =
-             ifelse((MG2_abundance <= (1 / 1000000)), 0, MG2)) %>%
+             ifelse((MG2_abundance <= (1 / 10000000)), 0, MG2)) %>%
     mutate(MG3 =
-             ifelse((MG3_abundance <= (1 / 1000000)), 0, MG3)) %>%
+             ifelse((MG3_abundance <= (1 / 10000000)), 0, MG3)) %>%
     mutate(MG4 =
-             ifelse((MG4_abundance <= (1 / 1000000)), 0, MG4)) %>%
+             ifelse((MG4_abundance <= (1 / 10000000)), 0, MG4)) %>%
     mutate(MG5 =
-             ifelse((MG5_abundance <= (1 / 1000000)), 0, MG5)) %>%
+             ifelse((MG5_abundance <= (1 / 10000000)), 0, MG5)) %>%
     mutate(AF3 =
-             ifelse((AF3_abundance <= (1 / 1000000)), 0, AF3)) %>%
+             ifelse((AF3_abundance <= (1 / 10000000)), 0, AF3)) %>%
     mutate(AF4 =
-             ifelse((AF4_abundance <= (1 / 1000000)), 0, AF4)) %>%
+             ifelse((AF4_abundance <= (1 / 10000000)), 0, AF4)) %>%
     mutate(AF5 =
-             ifelse((AF5_abundance <= (1 / 1000000)), 0, AF5)) %>%
+             ifelse((AF5_abundance <= (1 / 10000000)), 0, AF5)) %>%
     
-rowwise(`contig ID`) %>%
-  mutate(total_AS = sum(
-    c(
-      AS1,
-      AS2,
-      AS3,
-      AS4,
-      AS5
-    )
-  )) %>%
-  mutate(total_MG = sum(
-    c(
-      MG1,
-      MG2,
-      MG3,
-      MG4,
-      MG5
-    )
-  )) %>%
-  mutate(total_AF = sum(
-    c(
-      AF3,
-      AF4,
-      AF5
-    )
-  )) %>%
-  filter(sum(total_AS, total_AF, total_MG) >= 20) %>%
-  filter(type != "NA")
+    rowwise(`contig ID`) %>%
+    mutate(total_AS = sum(
+      c(
+        AS1,
+        AS2,
+        AS3,
+        AS4,
+        AS5
+      )
+    )) %>%
+    mutate(total_MG = sum(
+      c(
+        MG1,
+        MG2,
+        MG3,
+        MG4,
+        MG5
+      )
+    )) %>%
+    mutate(total_AF = sum(
+      c(
+        AF3,
+        AF4,
+        AF5
+      )
+    )) %>%
+    filter(sum(total_AS, total_AF, total_MG) >= 20) %>%
+    filter(type != "NA")
   
-
+  
   AS <- list(
     AS1 = rep(contigency_table.s$`contig ID`, (contigency_table.s$AS1)),
     AS2 = rep(contigency_table.s$`contig ID`, (contigency_table.s$AS2)),
@@ -439,13 +442,13 @@ rowwise(`contig ID`) %>%
     AF4 = rep(contigency_table.s$`contig ID`, (contigency_table.s$AF4)),
     AF5 = rep(contigency_table.s$`contig ID`, (contigency_table.s$AF5))
   )
-    
+  
   return(list(AS = AS, AF = AF, MG =  MG))
 }
 
 get_viruscontigs_venn <- function() {
   
-    vert_viruses <-
+  vert_viruses <-
     get_venn_data(blast_results_table,
                   contingency_table,
                   unique(verteb_viruses.df$virus_family))
@@ -461,7 +464,7 @@ get_viruscontigs_venn <- function() {
     get_venn_data(blast_results_table,
                   contingency_table,
                   unique(bacteriophage.df$virus_family))
-
+  
   vert.venn <-
     list(
       AS = unlist(vert_viruses[[1]]),
@@ -525,28 +528,26 @@ contigs.venn <- get_viruscontigs_venn()
 contigs.venn
 
 all_virus <-
-    get_venn_data(blast_results_table,
-                  contingency_table,
-                  unique(all_virus.df$virus_family))
+  get_venn_data(blast_results_table,
+                contingency_table,
+                unique(all_virus.df$virus_family))
 
 all.venn <-
-    list(
-      AS = unlist(all_virus[[1]]),
-      AF = unlist(all_virus[[2]]),
-      MG = unlist(all_virus[[3]])
-    ) %>%
-    ggvenn(
-      fill_color = c("#66C2A5", "#8DA0CB", "#FC8D62"),
-      stroke_size = 0.5,
-      show_percentage = F,
-      set_name_size = 5
-    )
-  
+  list(
+    AS = unlist(all_virus[[1]]),
+    AF = unlist(all_virus[[2]]),
+    MG = unlist(all_virus[[3]])
+  ) %>%
+  ggvenn(
+    fill_color = c("#66C2A5", "#8DA0CB", "#FC8D62"),
+    stroke_size = 0.5,
+    show_percentage = F,
+    set_name_size = 5
+  )
+
 all.venn
 
-
-# ggsave(filename = "../Wytham_rodent_manuscript/figures/venn_virus_contigs_by_species_and_virus_groups.pdf", contigs.venn)
-
+# ggsave(filename = "../Wytham_rodent_manuscript/revisions/new_figures/venn_virus_contigs_by_species_and_virus_groups_2022-06.pdf", contigs.venn)
 
 ```
 
@@ -555,195 +556,196 @@ all.venn
 ```{r}
 
 get_venn_data_genera <-
-  function(blast_results_table,
-           contingency_table,
-           list) {
+  function(blast_results_table, contingency_table, list) {
+    
     blast_contigs_subset <- blast_results_table %>%
       filter(`length` >= 50)
     
     contigency_table.s <-
       annotate_and_filter_contingency_table(contingency_table, blast_contigs_subset) %>%
       filter(virus_family %in% list) %>%
-    rename(AS1 = WTCHG_714232_72815161_AS_1) %>%
-    rename(AS2 = WTCHG_714232_72835163_AS_2) %>%
-    rename(AS3 = WTCHG_714232_72865166_AS_3) %>%
-    rename(AS4 = WTCHG_714232_71935169_AS_4) %>%
-    rename(AS5 = WTCHG_714232_71965172_AS_5) %>%
-    rename(MG1 = WTCHG_714232_72825162_MG_1) %>%
-    rename(MG2 = WTCHG_714232_72845164_MG_2) %>%
-    rename(MG3 = WTCHG_714232_72875167_MG_3) %>%
-    rename(MG4 = WTCHG_714232_71945170_MG_4) %>%
-    rename(MG5 = WTCHG_714232_71975173_MG_5) %>%
-    rename(AF3 = WTCHG_714232_72855165_AF_3) %>%
-    rename(AF4 = WTCHG_714232_72885168_AF_4) %>%
-    rename(AF5 = WTCHG_714232_71955171_AF_5) %>%
+      rename(AS1 = WTCHG_714232_72815161_AS_1) %>%
+      rename(AS2 = WTCHG_714232_72835163_AS_2) %>%
+      rename(AS3 = WTCHG_714232_72865166_AS_3) %>%
+      rename(AS4 = WTCHG_714232_71935169_AS_4) %>%
+      rename(AS5 = WTCHG_714232_71965172_AS_5) %>%
+      rename(MG1 = WTCHG_714232_72825162_MG_1) %>%
+      rename(MG2 = WTCHG_714232_72845164_MG_2) %>%
+      rename(MG3 = WTCHG_714232_72875167_MG_3) %>%
+      rename(MG4 = WTCHG_714232_71945170_MG_4) %>%
+      rename(MG5 = WTCHG_714232_71975173_MG_5) %>%
+      rename(AF3 = WTCHG_714232_72855165_AF_3) %>%
+      rename(AF4 = WTCHG_714232_72885168_AF_4) %>%
+      rename(AF5 = WTCHG_714232_71955171_AF_5) %>%
+      
+      mutate(AS1_abundance =
+               round(AS1 / ((subset(
+                 samples_per_pool, Species == "AS" &
+                   Interval == 1
+               ))$`Number of paired-end reads`*2), digits=8)) %>%
+      mutate(AS2_abundance =
+               round(AS2 / ((subset(
+                 samples_per_pool, Species == "AS" &
+                   Interval == 2
+               ))$`Number of paired-end reads`*2), digits=8)) %>%
+      mutate(AS3_abundance =
+               round(AS3 / ((subset(
+                 samples_per_pool, Species == "AS" &
+                   Interval == 3
+               ))$`Number of paired-end reads`*2), digits=8)) %>%
+      mutate(AS4_abundance =
+               round(AS4 / ((subset(
+                 samples_per_pool, Species == "AS" &
+                   Interval == 4
+               ))$`Number of paired-end reads`*2), digits=8)) %>%
+      mutate(AS5_abundance =
+               round(AS5 / ((subset(
+                 samples_per_pool, Species == "AS" &
+                   Interval == 5
+               ))$`Number of paired-end reads`*2), digits=8)) %>%
+      mutate(MG1_abundance =
+               round(MG1 / ((subset(
+                 samples_per_pool, Species == "MG" &
+                   Interval == 1
+               ))$`Number of paired-end reads`*2), digits=8)) %>%
+      mutate(MG2_abundance =
+               round(MG2 / ((subset(
+                 samples_per_pool, Species == "MG" &
+                   Interval == 2
+               ))$`Number of paired-end reads`*2), digits=8)) %>%
+      mutate(MG3_abundance =
+               round(MG3 / ((subset(
+                 samples_per_pool, Species == "MG" &
+                   Interval == 3
+               ))$`Number of paired-end reads`*2), digits=8)) %>%
+      mutate(MG4_abundance =
+               round(MG4 / ((subset(
+                 samples_per_pool, Species == "MG" &
+                   Interval == 4
+               ))$`Number of paired-end reads`*2), digits=8)) %>%
+      mutate(MG5_abundance =
+               round(MG5 / ((subset(
+                 samples_per_pool, Species == "MG" &
+                   Interval == 5
+               ))$`Number of paired-end reads`*2), digits=8)) %>%
+      mutate(AF3_abundance =
+               round(AF3 / ((subset(
+                 samples_per_pool, Species == "AF" &
+                   Interval == 3
+               ))$`Number of paired-end reads`*2), digits=8)) %>%
+      mutate(AF4_abundance =
+               round(AF4 / ((subset(
+                 samples_per_pool, Species == "AF" &
+                   Interval == 4
+               ))$`Number of paired-end reads`*2), digits=8)) %>%
+      mutate(AF5_abundance =
+               round(AF5 / ((subset(
+                 samples_per_pool, Species == "AF" &
+                   Interval == 5
+               ))$`Number of paired-end reads`*2), digits=8)) %>%
+      
+      mutate(AS1 =
+               ifelse((AS1_abundance <= (1 / 10000000)), 0, AS1)) %>%
+      mutate(AS2 =
+               ifelse((AS2_abundance <= (1 / 10000000)), 0, AS2)) %>%
+      mutate(AS3 =
+               ifelse((AS3_abundance <= (1 / 10000000)), 0, AS3)) %>%
+      mutate(AS4 =
+               ifelse((AS4_abundance <= (1 / 10000000)), 0, AS4)) %>%
+      mutate(AS5 =
+               ifelse((AS5_abundance <= (1 / 10000000)), 0, AS5)) %>%
+      mutate(MG1 =
+               ifelse((MG1_abundance <= (1 / 10000000)), 0, MG1)) %>%
+      mutate(MG2 =
+               ifelse((MG2_abundance <= (1 / 10000000)), 0, MG2)) %>%
+      mutate(MG3 =
+               ifelse((MG3_abundance <= (1 / 10000000)), 0, MG3)) %>%
+      mutate(MG4 =
+               ifelse((MG4_abundance <= (1 / 10000000)), 0, MG4)) %>%
+      mutate(MG5 =
+               ifelse((MG5_abundance <= (1 / 10000000)), 0, MG5)) %>%
+      mutate(AF3 =
+               ifelse((AF3_abundance <= (1 / 10000000)), 0, AF3)) %>%
+      mutate(AF4 =
+               ifelse((AF4_abundance <= (1 / 10000000)), 0, AF4)) %>%
+      mutate(AF5 =
+               ifelse((AF5_abundance <= (1 / 10000000)), 0, AF5)) %>%
+      
+      
+      rowwise(`contig ID`) %>%
+      mutate(total_AS = sum(
+        c(
+          AS1,
+          AS2,
+          AS3,
+          AS4,
+          AS5
+        )
+      )) %>%
+      mutate(total_MG = sum(
+        c(
+          MG1,
+          MG2,
+          MG3,
+          MG4,
+          MG5
+        )
+      )) %>%
+      mutate(total_AF = sum(
+        c(
+          AF3,
+          AF4,
+          AF5
+        )
+      )) %>%
+      filter(sum(total_AS, total_AF, total_MG) >= 20) %>%
+      filter(type != "NA")
     
-    mutate(AS1_abundance =
-             round(AS1 / (subset(
-               total_virus_reads, Species == "AS" &
-                 Interval == 1
-             ))$Sequences, digits=8)) %>%
-    mutate(AS2_abundance =
-             round(AS2 / (subset(
-               total_virus_reads, Species == "AS" &
-                 Interval == 2
-             ))$Sequences, digits=8)) %>%
-    mutate(AS3_abundance =
-             round(AS3 / (subset(
-               total_virus_reads, Species == "AS" &
-                 Interval == 3
-             ))$Sequences, digits=8)) %>%
-    mutate(AS4_abundance =
-             round(AS4 / (subset(
-               total_virus_reads, Species == "AS" &
-                 Interval == 4
-             ))$Sequences, digits=8)) %>%
-    mutate(AS5_abundance =
-             round(AS5 / (subset(
-               total_virus_reads, Species == "AS" &
-                 Interval == 5
-             ))$Sequences, digits=8)) %>%
-    mutate(MG1_abundance =
-             round(MG1 / (subset(
-               total_virus_reads, Species == "MG" &
-                 Interval == 1
-             ))$Sequences, digits=8)) %>%
-    mutate(MG2_abundance =
-             round(MG2 / (subset(
-               total_virus_reads, Species == "MG" &
-                 Interval == 2
-             ))$Sequences, digits=8)) %>%
-    mutate(MG3_abundance =
-             round(MG3 / (subset(
-               total_virus_reads, Species == "MG" &
-                 Interval == 3
-             ))$Sequences, digits=8)) %>%
-    mutate(MG4_abundance =
-             round(MG4 / (subset(
-               total_virus_reads, Species == "MG" &
-                 Interval == 4
-             ))$Sequences, digits=8)) %>%
-    mutate(MG5_abundance =
-             round(MG5 / (subset(
-               total_virus_reads, Species == "MG" &
-                 Interval == 5
-             ))$Sequences, digits=8)) %>%
-    mutate(AF3_abundance =
-             round(AF3 / (subset(
-               total_virus_reads, Species == "AF" &
-                 Interval == 3
-             ))$Sequences, digits=8)) %>%
-    mutate(AF4_abundance =
-             round(AF4 / (subset(
-               total_virus_reads, Species == "AF" &
-                 Interval == 4
-             ))$Sequences, digits=8)) %>%
-    mutate(AF5_abundance =
-             round(AF5 / (subset(
-               total_virus_reads, Species == "AF" &
-                 Interval == 5
-             ))$Sequences, digits=8)) %>%
-    
-    mutate(AS1 =
-             ifelse((AS1_abundance <= (2 / 1000000)), 0, AS1)) %>%
-    mutate(AS2 =
-             ifelse((AS2_abundance <= (2 / 1000000)), 0, AS2)) %>%
-    mutate(AS3 =
-             ifelse((AS3_abundance <= (2 / 1000000)), 0, AS3)) %>%
-    mutate(AS4 =
-             ifelse((AS4_abundance <= (2 / 1000000)), 0, AS4)) %>%
-    mutate(AS5 =
-             ifelse((AS5_abundance <= (2 / 1000000)), 0, AS5)) %>%
-    mutate(MG1 =
-             ifelse((MG1_abundance <= (2 / 1000000)), 0, MG1)) %>%
-    mutate(MG2 =
-             ifelse((MG2_abundance <= (2 / 1000000)), 0, MG2)) %>%
-    mutate(MG3 =
-             ifelse((MG3_abundance <= (2 / 1000000)), 0, MG3)) %>%
-    mutate(MG4 =
-             ifelse((MG4_abundance <= (2 / 1000000)), 0, MG4)) %>%
-    mutate(MG5 =
-             ifelse((MG5_abundance <= (2 / 1000000)), 0, MG5)) %>%
-    mutate(AF3 =
-             ifelse((AF3_abundance <= (2 / 1000000)), 0, AF3)) %>%
-    mutate(AF4 =
-             ifelse((AF4_abundance <= (2 / 1000000)), 0, AF4)) %>%
-    mutate(AF5 =
-             ifelse((AF5_abundance <= (2 / 1000000)), 0, AF5)) %>%
+    AS <- list(
+      AS1 = rep(contigency_table.s$species_list, (contigency_table.s$AS1)),
+      AS2 = rep(contigency_table.s$species_list, (contigency_table.s$AS2)),
+      AS3 = rep(contigency_table.s$species_list, (contigency_table.s$AS3)),
+      AS4 = rep(contigency_table.s$species_list, (contigency_table.s$AS4)),
+      AS5 = rep(contigency_table.s$species_list, (contigency_table.s$AS5))
+    )
 
-        
-rowwise(`contig ID`) %>%
-  mutate(total_AS = sum(
-    c(
-      AS1,
-      AS2,
-      AS3,
-      AS4,
-      AS5
+    MG <- list(
+      MG1 = rep(contigency_table.s$species_list, (contigency_table.s$MG1)),
+      MG2 = rep(contigency_table.s$species_list, (contigency_table.s$MG2)),
+      MG3 = rep(contigency_table.s$species_list, (contigency_table.s$MG3)),
+      MG4 = rep(contigency_table.s$species_list, (contigency_table.s$MG4)),
+      MG5 = rep(contigency_table.s$species_list, (contigency_table.s$MG5))
     )
-  )) %>%
-  mutate(total_MG = sum(
-    c(
-      MG1,
-      MG2,
-      MG3,
-      MG4,
-      MG5
-    )
-  )) %>%
-  mutate(total_AF = sum(
-    c(
-      AF3,
-      AF4,
-      AF5
-    )
-  )) %>%
-  filter(sum(total_AS, total_AF, total_MG) >= 20) %>%
-  filter(type != "NA")
 
-  AS <- list(
-    AS1 = rep(contigency_table.s$species_list, (contigency_table.s$AS1)),
-    AS2 = rep(contigency_table.s$species_list, (contigency_table.s$AS2)),
-    AS3 = rep(contigency_table.s$species_list, (contigency_table.s$AS3)),
-    AS4 = rep(contigency_table.s$species_list, (contigency_table.s$AS4)),
-    AS5 = rep(contigency_table.s$species_list, (contigency_table.s$AS5))
-  )
-  
-  MG <- list(
-    MG1 = rep(contigency_table.s$species_list, (contigency_table.s$MG1)),
-    MG2 = rep(contigency_table.s$species_list, (contigency_table.s$MG2)),
-    MG3 = rep(contigency_table.s$species_list, (contigency_table.s$MG3)),
-    MG4 = rep(contigency_table.s$species_list, (contigency_table.s$MG4)),
-    MG5 = rep(contigency_table.s$species_list, (contigency_table.s$MG5))
-  )
-  
-  AF <- list(
-    AF3 = rep(contigency_table.s$species_list, (contigency_table.s$AF3)),
-    AF4 = rep(contigency_table.s$species_list, (contigency_table.s$AF4)),
-    AF5 = rep(contigency_table.s$species_list, (contigency_table.s$AF5))
-  )
-    
+    AF <- list(
+      AF3 = rep(contigency_table.s$species_list, (contigency_table.s$AF3)),
+      AF4 = rep(contigency_table.s$species_list, (contigency_table.s$AF4)),
+      AF5 = rep(contigency_table.s$species_list, (contigency_table.s$AF5))
+    )
+
     return(list(AS = AS, AF = AF, MG =  MG))
   }
+
+
 
 get_virusgenera_venn <- function() {
   
   vert_viruses <-
     get_venn_data_genera(blast_results_table,
-                    contingency_table,
-                    unique(verteb_viruses.df$virus_family))
+                         contingency_table,
+                         unique(verteb_viruses.df$virus_family))
   invert_viruses <-
     get_venn_data_genera(blast_results_table,
-                    contingency_table,
-                    unique(invert_virus.df$virus_family))
+                         contingency_table,
+                         unique(invert_virus.df$virus_family))
   plant_viruses <-
     get_venn_data_genera(blast_results_table,
-                    contingency_table,
-                    unique(plant_virus.df$virus_family))
+                         contingency_table,
+                         unique(plant_virus.df$virus_family))
   bacterio_viruses <-
     get_venn_data_genera(blast_results_table,
-                    contingency_table,
-                    unique(bacteriophage.df$virus_family))
+                         contingency_table,
+                         unique(bacteriophage.df$virus_family))
   
   vert.venn <-
     list(
@@ -809,7 +811,7 @@ virusgenera_venn <- get_virusgenera_venn()
 
 virusgenera_venn
 
-# ggsave(filename = "../Wytham_rodent_manuscript/figures/venn_virus_family.pdf", virusfamily_venn)
+# ggsave(filename = "../Wytham_rodent_manuscript/revisions/new_figures/venn_virus_genera_2022-06.pdf", virusgenera_venn)
 
 ```
 
@@ -818,7 +820,9 @@ virusgenera_venn
 ```{r, echo=FALSE, warning=FALSE}
 
 ##### all viruses #####
-all_virus_relabund <- get_relAbundance_s(unique(all_virus_species.df$virus_species), contigency_table.s)
+all_virus_relabund <- get_relAbundance_s(unique(all_virus_species.df$virus_species), contingency_table.s)
+
+# (unique(all_virus_relabund$virus_species))
 
 all_virus_abund.df <- get_abundance(all_virus_relabund)
 
@@ -829,18 +833,18 @@ spec_accum <- specaccum(v_comm.mat[1:13,2:100],method = "random", permutations=1
 sp1 <- data.frame(species_richness = spec_accum$richness, sd = spec_accum$sd, samples = spec_accum$sites)
 
 spec_accum_curve <-
-sp1 %>%
-ggplot(aes(samples, species_richness)) + 
+  sp1 %>%
+  ggplot(aes(samples, species_richness)) + 
   geom_line() + geom_point() +
   geom_ribbon(aes(ymin=species_richness-sd, ymax=species_richness+sd), alpha=0.2) + 
-  theme_bw() + xlab("Sample number") + ylab("Species richness") + ggtitle("All") + theme(plot.title = element_text(hjust = 0.5))
+  theme_bw() + xlab("Sample number") + ylab("Virus richness") + ggtitle("All") + theme(plot.title = element_text(hjust = 0.5)) + scale_y_continuous(limits=c(0,100))
 
 spec_accum_curve
 
 
 ##### vert viruses #####
 
-vert_virus_relabund <- get_relAbundance_s(unique(verterb_virus_species.df$virus_species), contigency_table.s)
+vert_virus_relabund <- get_relAbundance_s(unique(verterb_virus_species.df$virus_species), contingency_table.s)
 
 vert_virus_abund.df <- get_abundance(vert_virus_relabund)
 
@@ -851,17 +855,18 @@ spec_accum.vert <- specaccum(vert_comm.mat[1:13,2:21],method = "random", permuta
 sp.vert <- data.frame(species_richness = spec_accum.vert$richness, sd = spec_accum.vert$sd, samples = spec_accum.vert$sites)
 
 spec_accum_curve.vert <-
-sp.vert  %>%
-ggplot(aes(samples, species_richness)) + 
+  sp.vert  %>%
+  ggplot(aes(samples, species_richness)) + 
   geom_line() + geom_point() +
   geom_ribbon(aes(ymin=species_richness-sd, ymax=species_richness+sd), alpha=0.2) + 
-  theme_bw() + xlab("Sample number") + ylab("Species richness") + ggtitle("Vertebrate-associated") + theme(plot.title = element_text(hjust = 0.5))
+  theme_bw() + xlab("Sample number") + ylab("Virus richness") + ggtitle("Vertebrate-associated") + theme(plot.title = element_text(hjust = 0.5)) + 
+  scale_y_continuous(limits=c(0,20))
 
 spec_accum_curve.vert
 
 ##### bacteriophage #####
 
-phage_relabund <- get_relAbundance_s(unique(phage_species.df$virus_species), contigency_table.s)
+phage_relabund <- get_relAbundance_s(unique(phage_species.df$virus_species), contingency_table.s)
 
 phage_abund.df <- get_abundance(phage_relabund)
 
@@ -872,11 +877,11 @@ spec_accum.phage <- specaccum(phage_comm.mat[1:13,2:35],method = "random", permu
 sp.phage <- data.frame(species_richness = spec_accum.phage$richness, sd = spec_accum.phage$sd, samples = spec_accum.phage$sites)
 
 spec_accum_curve.phage <-
-sp.phage %>%
-ggplot(aes(samples, species_richness)) + 
+  sp.phage %>%
+  ggplot(aes(samples, species_richness)) + 
   geom_line() + geom_point() +
   geom_ribbon(aes(ymin=species_richness-sd, ymax=species_richness+sd), alpha=0.2) + 
-  theme_bw() + xlab("Sample number") + ylab("Species richness") + ggtitle("Bacteriophage") + theme(plot.title = element_text(hjust = 0.5))
+  theme_bw() + xlab("Sample number") + ylab("Virus richness") + ggtitle("Bacteriophage") + theme(plot.title = element_text(hjust = 0.5)) + scale_y_continuous(limits=c(0,32), breaks=seq(0,32, 8 ))
 
 spec_accum_curve.phage
 
@@ -884,43 +889,46 @@ spec_accum_plots <- ggarrange(spec_accum_curve, spec_accum_curve.vert,  spec_acc
 
 spec_accum_plots
 
-ggsave("../Wytham_rodent_manuscript/figures/rarefraction_curves_2021-12-10.pdf", spec_accum_plots, height=2.5, width=8)
+ggsave("../Wytham_rodent_manuscript/revisions/new_figures/rarefraction_curves_2022-06-09.pdf", spec_accum_plots, height=2.5, width=8)
 
- ```
+```
 ## Picornavirus abundance
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, fig.width=3, fig.height=2}
 
 options(scipen = 2)
+
 picorna_abundance_over_time <-
   
-  get_relAbundance_s(unique(picorna$species_list), contigency_table.s)  %>% 
+  get_relAbundance_s(unique(picorna$species_list), contingency_table.s)  %>% 
+  mutate(Interval=as.character(Interval)) %>% 
+  left_join(samples_per_pool) %>%
   mutate(viral_read_count =
-           ifelse((viral_read_count/Sequences <= (1/1000000)), 0, viral_read_count)) %>%
+           ifelse((viral_read_count/(`Number of paired-end reads`*2) <= (1/10000000)), 0, viral_read_count)) %>%
   # mutate(viral_read_count = 
   #        ifelse((viral_read_count < 5), 0, viral_read_count)) %>%
   mutate(Interval=as.character(Interval)) %>% 
-  left_join(samples_per_pool) %>%
   filter(virus_species %in% c("Mosavirus", 
                               "Cardiovirus", 
                               "Kunsagivirus", 
                               "Hunnivirus", 
                               "Unclassified picornavirus 1", 
                               "Unclassified picornavirus 2")) %>%
-    group_by(virus_species, 
+  group_by(virus_species, 
            Interval, 
            Species, 
            collection_date, 
            `Number of individuals`, 
-           Sequences) %>% 
-    summarise(viral_read_sum = sum(viral_read_count)) %>%
-    ggplot(aes(dmy(collection_date), 
+           `Number of paired-end reads`) %>% 
+  summarise(viral_read_sum = sum(viral_read_count)) %>%
+  ggplot(aes(dmy(collection_date), 
              group=Species, colour = Species, 
-             y = viral_read_sum/`Number of individuals`)) +
+             y = (viral_read_sum/`Number of individuals`/(`Number of paired-end reads`*2)))) +
   geom_point() + 
   geom_line() + 
   facet_wrap(~virus_species, nrow=2) + 
-  scale_y_log10() + 
+  scale_y_log10() +
+  # scale_y_continuous(limits=c(-9, -4)) +
   ylab("Normalised read abundance") + 
   xlab("Time") + 
   scale_color_manual(values=c("#8DA0CB", "#66C2A5", "#FC8D62")) + 
@@ -929,7 +937,7 @@ picorna_abundance_over_time <-
 
 picorna_abundance_over_time
 
-ggsave("../Wytham_rodent_manuscript/figures/picornavirus_abundance_2021-11-30.pdf", picorna_abundance_over_time, height=4, width=6)
+ggsave("../Wytham_rodent_manuscript/revisions/new_figures/picornavirus_abundance_2022-06-09.pdf", picorna_abundance_over_time, height=4, width=6.5)
 
 ```
 
@@ -947,9 +955,14 @@ i4 <- rep(1,13) # total
 # for individual species
 i5 <- c(seq(1,5,1)) # individual
 i7 <- rep(1,5) # total
+i8 <- c(seq(3,5,1)) # individual
+i9 <- rep(1,3) # total
 
-levels <- data.frame(i1 = i1, i3 = i3, i4 = i4)
-levels.2 <- data.frame(i5 = i5, i6 = i6, i4 = i4)
+levels <- data.frame(i1 = i1, i2 = i2, i4 = i4)
+levels.2 <- data.frame(i5 = i5, i7 = i7)
+levels.3 <- data.frame(i8 = i8, i9 = i9)
+
+levels
 
 v_comm_all.mat <- get_comm_mat_n(all_virus_abund.df)
 
@@ -966,6 +979,113 @@ comm_mat_AS <- v_comm_all.mat[4:8,2:100]
 comm_mat_MG <- v_comm_all.mat[9:13,2:100]
 
 adipart(comm_mat.all, levels, index = "richness", nsimul=99)
+levels.2
+```
+
+
+# PERMANOVA
+```{r}
+#all viruses
+set.seed(20220620)
+comm_mat.all_virus <- all_virus_abund.df %>%
+# filter(!(virus_family %in% c("Picobirnaviridae", "Microviridae", "Leviviridae"))) %>%
+  get_comm_mat_s()
+
+
+v_meta <- data.frame(species = c(rep("AF", 3), rep("AS", 5), rep("MG", 5)), 
+                       interval = (c(3,4,5, rep(seq(1,5), 2))), id = comm_mat.all_virus$id)
+v_meta$species <- as.factor(v_meta$species)
+v_meta$species <- factor(v_meta$species, levels = c("MG", "AS", "AF"))
+
+v_otu <-
+comm_mat.all_virus[,2:length(comm_mat.all_virus[1,])] %>% 
+  select_if(negate(function(col) is.numeric(col) && sum(col) == 0)) %>%
+    select_if(negate(function(col) is.numeric(col) && sum(col) > 0.0005)) %>%
+  as.matrix()
+
+
+permanova <- adonis((v_otu) ~ species*interval,
+                    data = v_meta, permutations=999, 
+                    method = "bray",
+                    strata = v_meta$species)
+
+permanova$aov.tab
+
+coefficients(permanova)
+coef <- coefficients(permanova)["interval",]
+top.coef <- coef[rev(order(abs(coef)))[1:20]]
+
+top.coef.df <- data.frame(genera = names(top.coef), coef = as.numeric(top.coef))
+
+
+hpermanova.all <- 
+ggplot(top.coef.df,aes(x= reorder(genera,coef),coef))+geom_bar(stat ="identity") + coord_flip() + theme_minimal_vgrid() + xlab("Virus genera") + ylab("Coefficient")
+
+hpermanova.all
+
+
+# vertebrate viruses
+set.seed(20220620)
+
+comm_mat.vert <- vert_virus_abund.df %>%
+  get_comm_mat_s()
+
+v_otu <- comm_mat.vert[,2:length(comm_mat.vert[1,])] %>% 
+  select_if(negate(function(col) is.numeric(col) && sum(col) == 0)) %>%
+  select_if(negate(function(col) is.numeric(col) && sum(col) > 0.0005)) %>%
+  as.matrix()
+
+
+permanova <- adonis((v_otu) ~ interval*species,
+                    data = v_meta, permutations=999, 
+                    method = "bray",
+                    strata = v_meta$species)
+
+permanova$aov.tab
+
+coef <- coefficients(permanova)["interval",]
+top.coef <- coef[rev(order(abs(coef)))[1:10]]
+
+top.coef.df <- data.frame(genera = names(top.coef), coef = as.numeric(top.coef))
+
+hpermanova.vert <- 
+ggplot(top.coef.df,aes(x= reorder(genera,coef),coef))+geom_bar(stat ="identity") + coord_flip() + theme_minimal_vgrid() + xlab("Virus genera") + ylab("Coefficient")
+
+hpermanova.vert
+
+
+# phage viruses
+set.seed(20220620)
+
+comm_mat.phage <- phage_abund.df %>%
+  get_comm_mat_s()
+
+v_otu <- comm_mat.phage[,2:length(comm_mat.phage[1,])] %>% 
+  select_if(negate(function(col) is.numeric(col) && sum(col) == 0)) %>%
+      select_if(negate(function(col) is.numeric(col) && sum(col) > 0.0005)) %>%
+  as.matrix()
+
+permanova <- adonis((v_otu) ~ interval*species,
+                    data = v_meta, permutations=999, 
+                    method = "bray", 
+                    strata = v_meta$species)
+
+permanova$aov.tab
+coef <- coefficients(permanova)["interval",]
+top.coef <- coef[rev(order(abs(coef)))[1:10]]
+
+top.coef.df <- data.frame(genera = names(top.coef), coef = as.numeric(top.coef))
+
+hpermanova.phage <- 
+ggplot(top.coef.df,aes(x= reorder(genera,coef),coef))+geom_bar(stat ="identity") + coord_flip() + theme_minimal_vgrid() + xlab("Virus genera") + ylab("Coefficient")
+
+hpermanova.phage
+
+hpermonova.summary <-
+ggarrange(hpermanova.all, hpermanova.vert, hpermanova.phage, labels = c("A", "B", "C"), nrow=1, ncol=3, widths = c(1,1,1), common.legend = TRUE)
+hpermonova.summary
+ggsave("../Wytham_rodent_manuscript/revisions/new_figures/hierarchical_permanova_2022-06.pdf", width = 18, height = 6, hpermonova.summary)
+
 
 ```
 
@@ -974,17 +1094,17 @@ adipart(comm_mat.all, levels, index = "richness", nsimul=99)
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, fig.width=4}
 
 comm_mat <-
-all_virus_species.df %>%
-  mutate(viral_read_count = ifelse(viral_read_count/Sequences <= 1/1000000, 0, viral_read_count)) %>%
+  all_virus_species.df %>%
+  mutate(viral_read_count = ifelse(viral_read_count/(`Number of paired-end reads`*2) <= 1/10000000, 0, viral_read_count)) %>%
   get_comm_mat_s()
 
 selected_table <-
-samples_per_pool %>%
+  samples_per_pool %>%
   rename(Collection.date = collection_date) %>%
   select(Species, Interval, Collection.date, `Number of individuals`, id)
 
 diversity_vs_sample_number <-
-get_diversity_stats(comm_mat) %>%
+  get_diversity_stats(comm_mat) %>%
   rename(Shannon.diversity = H) %>%
   rename(Species.richness = species_richness) %>%
   rename(Collection.date = Interval) %>%
@@ -1010,16 +1130,16 @@ result
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, fig.width=4}
 
 comm_mat <-
-all_virus_species.df %>%
-  mutate(viral_read_count = ifelse(viral_read_count/Sequences <= 1/1000000, 0, viral_read_count)) %>%
-  filter(virus_species %in% c("Cardiovirus", "Hunnivirus", "Kunsagivirus", "Mosavirus", "Unclassified picornavirus 1", "Unclassified picornavirus 2")) %>%
+  all_virus_species.df %>%
+   filter(virus_species %in% c("Cardiovirus", "Hunnivirus", "Kunsagivirus", "Mosavirus", "Unclassified picornavirus 1", "Unclassified picornavirus 2")) %>%
+  mutate(viral_read_count = ifelse(viral_read_count/(`Number of paired-end reads`*2) <= 1/10000000, 0, viral_read_count)) %>%
   get_comm_mat_s()
-  
+
 diversity_stats <- get_diversity_stats(comm_mat) %>%
   rename(Shannon.diversity = H) %>%
   rename(Species.richness = species_richness) %>%
   rename(Collection.date = Interval)
-  
+
 
 diversity_stats$Species <- factor(diversity_stats$Species, levels=c("AS", "AF", "MG"))
 
@@ -1029,8 +1149,8 @@ p1 <- ggplot(diversity_stats, aes(dmy(Collection.date), Species.richness, group=
   facet_wrap(~Species) +
   scale_color_manual(values=c("#66C2A5", "#8DA0CB", "#FC8D62")) +
   theme_bw() +
-  ylab("Species richness")+
-    scale_y_continuous(limits=c(0,5), breaks=seq(0,5,1))+
+  ylab("Richness")+
+  scale_y_continuous(limits=c(0,5), breaks=seq(0,5,1))+
   # scale_x_date(limits =c(dmy("01/01/2017"), dmy("31/12/2017")))+
   # theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position="none")+
   xlab("Time")
@@ -1041,56 +1161,20 @@ p2 <- ggplot(diversity_stats, aes(dmy(Collection.date), Shannon.diversity, group
   facet_wrap(~Species) +
   scale_color_manual(values=c("#66C2A5", "#8DA0CB", "#FC8D62")) +
   theme_bw()+
-  ylab("Shannon diversity") +
+  ylab("Eveness") +
   scale_y_continuous(limits=c(0,1.0), breaks=seq(0,1,0.2))+
-    # scale_x_date(limits =c(dmy("01/01/2017"), dmy("31/12/2017")))+
+  # scale_x_date(limits =c(dmy("01/01/2017"), dmy("31/12/2017")))+
   # theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position="none")+
   xlab("Time")
 
 picorna.fig <- ggarrange(p2, p1, align="hv", ncol=1, legend = "none")
 picorna.fig <- annotate_figure(picorna.fig)
-
-ggsave("../Wytham_rodent_manuscript/figures/picornavirus_diversity_2021-11-30.pdf", picorna.fig, height=4.5, width=6)
 picorna.fig
+ggsave("../Wytham_rodent_manuscript/revisions/new_figures/picornavirus_diversity_2022-06.pdf", picorna.fig, height=4, width=5.5)
+ picorna.fig
 
 ```
 
-
-# Four most common families
-
-```{r}
-
-four_most_common_families <- read_csv("mapped_reads_four_most_common_families_2021-12-02.csv")
-
-subset_most_common_families <-
-four_most_common_families %>%
-  left_join(total_virus_reads) %>%
-  mutate(Interval = as.character(Interval)) %>%
-  left_join(samples_per_pool) %>%
-  select(`Virus family`, `Mapped read count`, Species, Interval, collection_date, `Number of individuals`, Sequences) %>%
-  mutate(Normalised_abundance = `Mapped read count`/`Number of individuals`) %>%
-  filter(Species %in% c("AS", "MG"))
-
-picob <- subset_most_common_families %>%
-  filter(`Virus family` %in% c("Picobirnaviridae")) %>%
-  ggplot(aes(dmy(collection_date), Normalised_abundance)) + facet_grid(Species~`Virus family`) + geom_point() + geom_line() + theme_bw() + xlab("Time") + ylab("Normalised read abundance") + scale_y_log10()
-
-levi <- subset_most_common_families %>%
-  filter(`Virus family` %in% c("Leviviridae")) %>%
-  ggplot(aes(dmy(collection_date), Normalised_abundance)) + facet_grid(Species~`Virus family`) + geom_point() + geom_line() + theme_bw() + xlab("Time") + ylab("Normalised read abundance") + scale_y_log10()
-
-micro <- subset_most_common_families %>%
-  filter(`Virus family` %in% c("Microviridae")) %>%
-  ggplot(aes(dmy(collection_date), Normalised_abundance)) + facet_grid(Species~`Virus family`) + geom_point() + geom_line() + theme_bw() + xlab("Time") + ylab("Normalised read abundance") + scale_y_log10()
-
-picorna_a <- subset_most_common_families %>%
-  filter(`Virus family` %in% c("Picornaviridae")) %>%
-  ggplot(aes(dmy(collection_date), Normalised_abundance)) + facet_grid(Species~`Virus family`) + geom_point() + geom_line() + theme_bw() + xlab("Time") + ylab("Normalised read abundance") + scale_y_log10()
-
-abundance.p <- (picob | levi | micro | picorna_a)
-
-ggsave("../Wytham_rodent_manuscript/figures/abundance_pattern_of_most_common_families_v3.pdf", abundance.p, height=3.5, width=12)
-``` 
 
 
 ```{r}
@@ -1166,7 +1250,7 @@ sawmill1$hum. <- rep(NA, length(sawmill1$hum.))
 weather_combined <- rbind(sawmill1, upperseed)
 
 weather_combined$date_format =as.POSIXct(weather_combined$date_format, 
-                                 tz = "GMT", format = '%d/%m/%Y %H:%M')
+                                         tz = "GMT", format = '%d/%m/%Y %H:%M')
 
 weather_combined$date2 =format(weather_combined$date_format, format = '%d/%m/%Y')
 weather_combined = weather_combined[!(is.na(weather_combined$date2)),]
@@ -1223,6 +1307,7 @@ plot(dates_weather, rain_pred, pch = 19, type = 'b',
 points(weather_daily_combined$dec_date, weather_daily_combined$rain_cts_cum, col = 'grey80')
 
 ```
+
 
 ```{r}
 #### weekly summaries...
@@ -1286,6 +1371,8 @@ MGden_pred <- predict(MGden_gam, data.frame(dec_date = dates_weather))
 
 ```
 
+# Comparing imputed and observed data 
+
 ```{r}
 ############
 # combining dataframes
@@ -1296,38 +1383,40 @@ diversity <- data.frame(dec_dates = round(pred_dates_div,3),
                         MG_rich = impute_MG_rich_df)
 
 weather <- data.frame(dec_dates = round(dates_weather, 3), # have to round to match
-                  temp_mean = temp_mean_pred,
-                  temp_min = temp_min_pred,
-                  temp_max = temp_max_pred,
-                  hum = hum_pred,
-                  rain = rain_pred,
-                  rain_wk = rain_wk_pred,
-                  AS_density = ASden_pred,
-                  MG_density = MGden_pred)
+                      temp_mean = temp_mean_pred,
+                      temp_min = temp_min_pred,
+                      temp_max = temp_max_pred,
+                      hum = hum_pred,
+                      rain = rain_pred,
+                      rain_wk = rain_wk_pred,
+                      AS_density = ASden_pred,
+                      MG_density = MGden_pred)
 
 timeseries_df = merge(diversity,weather, by ='dec_dates', all = TRUE )
 
-# write_csv(timeseries_df, "../Wytham_rodent_manuscript/cross-correlation_analysis/imputed_timeseries_data_Wytham_rodent_virome.csv")
+write_csv(timeseries_df, "../Wytham_rodent_manuscript/revisions/new_figures/imputed_timeseries_data_Wytham_rodent_virome_2022-06.csv")
 
 ## plotting imputed and observed values for diversity and density 
 
 imputed_data <-
-timeseries_df %>%
+  timeseries_df %>%
   select(dec_dates, AS_diversity, MG_diversity, AS_rich, MG_rich, AS_density, MG_density)%>%
   mutate(dec_dates = as.Date(date_decimal(dec_dates))) %>%
   rename(Collection.date = dec_dates) %>%
   melt(id.var=c("Collection.date")) %>%
   separate(variable, sep = "_", into = c("Species", "variable")) %>%
-  mutate(variable = ifelse(variable == "diversity", "Shannon.diversity", variable)) %>%
-  mutate(variable = ifelse(variable == "rich", "Species.richness", variable)) %>%
+  mutate(variable = ifelse(variable == "diversity", "Viral evenness", variable)) %>%
+  mutate(variable = ifelse(variable == "rich", "Viral richness", variable)) %>%
   mutate(variable = ifelse(variable == "density", "MNKA_per_ha", variable)) %>%
   select(Collection.date, Species, variable, value) %>%
   mutate(Type = rep("Imputed", length(Collection.date)))
 
 
 observed_data <-
-diversity_stats %>%
-  select(Collection.date, Shannon.diversity, Species.richness, Species) %>%
+  diversity_stats %>%
+  rename(`Viral evenness` = Shannon.diversity) %>%
+  rename(`Viral richness` = Species.richness) %>%
+  select(Collection.date, `Viral evenness`, `Viral richness`, Species) %>%
   filter(Species %in% c("AS", "MG")) %>%
   melt(id.var=c("Collection.date", "Species")) %>%
   combine(
@@ -1336,17 +1425,17 @@ diversity_stats %>%
       filter(Species %in% c("AS", "MG")) %>%
       melt(id.vars=c("Collection_date", "Species")) %>%
       rename(Collection.date = Collection_date)
-    ) %>%
+  ) %>%
   mutate(Type = rep("Observed", length(Collection.date))) %>%
   mutate(Collection.date = dmy((Collection.date)))
 
 
 combined_df <- rbind(imputed_data, observed_data)
 
-combined_df$variable <- factor(combined_df$variable, levels=c("Shannon.diversity", "Species.richness", "MNKA_per_ha"))
+combined_df$variable <- factor(combined_df$variable, levels=c("Viral evenness", "Viral richness", "MNKA_per_ha"))
 
 fitted_vs_observed <- 
-combined_df %>%
+  combined_df %>%
   ggplot(aes(Collection.date, value, group = variable, alpha = Type, shape = Type)) +
   geom_point(size=2) +
   facet_wrap(Species~variable, scales = "free") + 
@@ -1357,7 +1446,7 @@ combined_df %>%
 
 
 weather_plot <- 
-timeseries_df %>%
+  timeseries_df %>%
   select(dec_dates, temp_mean, hum, rain)%>%
   mutate(dec_dates = as.Date(date_decimal(dec_dates))) %>%
   rename(Collection.date = dec_dates) %>%
@@ -1371,11 +1460,14 @@ timeseries_df %>%
 
 weather_plot
 
-combined_plot <- ggarrange(fitted_vs_observed, weather_plot,heights = c(1, 0.6), nrow = 2)
-ggsave("../Wytham_rodent_manuscript/figures/Figure_SX_fitted_vs_observed_host_species_metrics.pdf", combined_plot, height = 8, width=10)
+combined_plot <- ggarrange(fitted_vs_observed, weather_plot,heights = c(1, 0.6), nrow = 2, labels = c("A", "B"))
+combined_plot
+ggsave("../Wytham_rodent_manuscript/revisions/new_figures/Figure_SX_fitted_vs_observed_host_species_metrics.pdf", combined_plot, height = 8, width=10)
 
 
 ```
+
+# Cross correlation analysis 
 
 ```{r}
 
@@ -1385,19 +1477,19 @@ ggsave("../Wytham_rodent_manuscript/figures/Figure_SX_fitted_vs_observed_host_sp
 names(timeseries_df)
 par(mfrow=c(3,2))
 ccf_values_AS1 <- ccf(timeseries_df$AS_diversity,timeseries_df$temp_mean, 
-    na.action = na.pass, lag.max = 12, main = 'mean temp', col ='#33a8b5')
+                      na.action = na.pass, lag.max = 12, main = 'mean temp', col ='#33a8b5')
 # ccf(timeseries_df$AS_diversity,timeseries_df$temp_min, 
 #     na.action = na.pass, lag.max = 6)
 ccf_values_AS2 <- ccf(timeseries_df$AS_diversity,timeseries_df$temp_max, 
-    na.action = na.pass, lag.max = 12,  main ='max temp', col ='#33a8b5')
+                      na.action = na.pass, lag.max = 12,  main ='max temp', col ='#33a8b5')
 ccf_values_AS3 <- ccf(timeseries_df$AS_diversity,timeseries_df$hum, 
-    na.action = na.pass, lag.max = 12,  main = 'humidity', col ='#33a8b5')
+                      na.action = na.pass, lag.max = 12,  main = 'humidity', col ='#33a8b5')
 ccf_values_AS4 <- ccf(timeseries_df$AS_diversity,timeseries_df$rain, 
-    na.action = na.pass, lag.max = 12, main = 'rainfall', col ='#33a8b5')
+                      na.action = na.pass, lag.max = 12, main = 'rainfall', col ='#33a8b5')
 ccf_values_AS5 <- ccf(timeseries_df$AS_diversity,timeseries_df$rain_wk, 
-    na.action = na.pass, lag.max = 12,main = 'weekly rainfall', col ='#33a8b5')
+                      na.action = na.pass, lag.max = 12,main = 'weekly rainfall', col ='#33a8b5')
 ccf_values_AS6 <- ccf(timeseries_df$AS_diversity,timeseries_df$AS_density, 
-    na.action = na.pass, lag.max = 12, main = 'density', col ='#33a8b5')
+                      na.action = na.pass, lag.max = 12, main = 'density', col ='#33a8b5')
 
 ccf_values_AS1 # temp mean; max sig lag = -7 (0.640)
 ccf_values_AS2 # temp max; max sig lag = -7 (0.629)
@@ -1408,19 +1500,19 @@ ccf_values_AS6 # density; max sig lag = -6 (-0.418)
 
 par(mfrow=c(3,2))
 ccf_values_MG1 <- ccf(timeseries_df$MG_diversity,timeseries_df$temp_mean, 
-    na.action = na.pass, lag.max = 12,  main = 'mean temp', col ='#dea310')
+                      na.action = na.pass, lag.max = 12,  main = 'mean temp', col ='#dea310')
 # ccf(timeseries_df$MG_diversity,timeseries_df$temp_min, 
 #     na.action = na.pass, lag.max = 6)
 ccf_values_MG2 <- ccf(timeseries_df$MG_diversity,timeseries_df$temp_max, 
-    na.action = na.pass, lag.max = 12,  main = 'max temp', col = '#dea310')
+                      na.action = na.pass, lag.max = 12,  main = 'max temp', col = '#dea310')
 ccf_values_MG3 <- ccf(timeseries_df$MG_diversity,timeseries_df$hum, 
-    na.action = na.pass, lag.max = 12,  main = 'humidity', col = '#dea310')
+                      na.action = na.pass, lag.max = 12,  main = 'humidity', col = '#dea310')
 ccf_values_MG4 <- ccf(timeseries_df$MG_diversity,timeseries_df$rain, 
-    na.action = na.pass, lag.max = 12,main = ' rainfall', col = '#dea310')
+                      na.action = na.pass, lag.max = 12,main = ' rainfall', col = '#dea310')
 ccf_values_MG5 <- ccf(timeseries_df$MG_diversity,timeseries_df$rain_wk, 
-    na.action = na.pass, lag.max = 12,main = 'weekly rainfall', col = '#dea310')
+                      na.action = na.pass, lag.max = 12,main = 'weekly rainfall', col = '#dea310')
 ccf_values_MG6 <- ccf(timeseries_df$MG_diversity,timeseries_df$MG_density, 
-    na.action = na.pass, lag.max = 12,main = 'density', col = '#dea310')
+                      na.action = na.pass, lag.max = 12,main = 'density', col = '#dea310')
 
 ccf_values_MG1 # temp mean; max sig lag = -3 (0.743)
 ccf_values_MG2 # temp max; max sig lag = -2 (0.749)
@@ -1431,49 +1523,49 @@ ccf_values_MG6 # density; max sig lag = -5 (-0.715)
 
 par(mfrow=c(3,2))
 ccf_values_rich_AS1 <- ccf(timeseries_df$AS_rich,timeseries_df$temp_mean, 
-    na.action = na.pass, lag.max = 12, main = 'mean temp', col ='#33a8b5')
+                           na.action = na.pass, lag.max = 12, main = 'mean temp', col ='#33a8b5')
 # ccf(timeseries_df$AS_diversity,timeseries_df$temp_min, 
 #     na.action = na.pass, lag.max = 6)
 ccf_values_rich_AS2 <- ccf(timeseries_df$AS_rich,timeseries_df$temp_max, 
-    na.action = na.pass, lag.max = 12,  main ='max temp', col ='#33a8b5')
+                           na.action = na.pass, lag.max = 12,  main ='max temp', col ='#33a8b5')
 ccf_values_rich_AS3 <- ccf(timeseries_df$AS_rich,timeseries_df$hum, 
-    na.action = na.pass, lag.max = 12,  main = 'humidity', col ='#33a8b5')
+                           na.action = na.pass, lag.max = 12,  main = 'humidity', col ='#33a8b5')
 ccf_values_rich_AS4 <- ccf(timeseries_df$AS_rich,timeseries_df$rain, 
-    na.action = na.pass, lag.max = 12, main = 'rainfall', col ='#33a8b5')
+                           na.action = na.pass, lag.max = 12, main = 'rainfall', col ='#33a8b5')
 ccf_values_rich_AS5 <- ccf(timeseries_df$AS_rich,timeseries_df$rain_wk, 
-    na.action = na.pass, lag.max = 12,main = 'weekly rainfall', col ='#33a8b5')
+                           na.action = na.pass, lag.max = 12,main = 'weekly rainfall', col ='#33a8b5')
 ccf_values_rich_AS6 <- ccf(timeseries_df$AS_rich,timeseries_df$AS_density, 
-    na.action = na.pass, lag.max = 12, main = 'density', col ='#33a8b5')
+                           na.action = na.pass, lag.max = 12, main = 'density', col ='#33a8b5')
 
-ccf_values_rich_AS1 # temp_mean; max sig lag = -1 (0.829)
-ccf_values_rich_AS2 # temp_max; max sig lag = -1 (0.826)
-ccf_values_rich_AS3 # hum; max sig lag = 0 (-0.891)
-ccf_values_rich_AS4 # rain; max sig lag = -5 (0.401)
-ccf_values_rich_AS5 # rain_wk; max sig lag = -6 (0.527)
-ccf_values_rich_AS6 # density; max sig lag = 0 (-0.519)
+ccf_values_rich_AS1 # temp_mean; max sig lag = -1 (0.829) 0 (0.770)
+ccf_values_rich_AS2 # temp_max; max sig lag = -1 (0.826) 0 (0.790)
+ccf_values_rich_AS3 # hum; max sig lag = 0 (-0.891) 0 (-0.759)
+ccf_values_rich_AS4 # rain; max sig lag = -5 (0.401) -4 (0.393)
+ccf_values_rich_AS5 # rain_wk; max sig lag = -6 (0.527) -6 (0.506)
+ccf_values_rich_AS6 # density; max sig lag = 0 (-0.519) 0 (-0.203)
 
 par(mfrow=c(3,2))
 ccf_values_rich_MG1 <- ccf(timeseries_df$MG_rich,timeseries_df$temp_mean, 
-    na.action = na.pass, lag.max = 12, main = 'mean temp', col ='#dea310')
+                           na.action = na.pass, lag.max = 12, main = 'mean temp', col ='#dea310')
 # ccf(timeseries_df$AS_diversity,timeseries_df$temp_min, 
 #     na.action = na.pass, lag.max = 6)
 ccf_values_rich_MG2 <- ccf(timeseries_df$MG_rich,timeseries_df$temp_max, 
-    na.action = na.pass, lag.max = 12,  main ='max temp', col ='#dea310')
+                           na.action = na.pass, lag.max = 12,  main ='max temp', col ='#dea310')
 ccf_values_rich_MG3 <- ccf(timeseries_df$MG_rich,timeseries_df$hum, 
-    na.action = na.pass, lag.max = 12,  main = 'humidity', col ='#dea310')
+                           na.action = na.pass, lag.max = 12,  main = 'humidity', col ='#dea310')
 ccf_values_rich_MG4 <- ccf(timeseries_df$MG_rich,timeseries_df$rain, 
-    na.action = na.pass, lag.max = 12, main = 'rainfall', col ='#dea310')
+                           na.action = na.pass, lag.max = 12, main = 'rainfall', col ='#dea310')
 ccf_values_rich_MG5 <- ccf(timeseries_df$MG_rich,timeseries_df$rain_wk, 
-    na.action = na.pass, lag.max = 12,main = 'weekly rainfall', col ='#dea310')
+                           na.action = na.pass, lag.max = 12,main = 'weekly rainfall', col ='#dea310')
 ccf_values_rich_MG6 <- ccf(timeseries_df$MG_rich,timeseries_df$AS_density, 
-    na.action = na.pass, lag.max = 12, main = 'density', col ='#dea310')
+                           na.action = na.pass, lag.max = 12, main = 'density', col ='#dea310')
 
-ccf_values_rich_MG1 # temp_mean; max sig lag = -2 (0.773)
-ccf_values_rich_MG2 # temp_max; max sig lag = -2 (0.775)
-ccf_values_rich_MG3 # hum; max sig lag = 0 (-0.820)
-ccf_values_rich_MG4 # rain; max sig lag = -6 (0.403)
-ccf_values_rich_MG5 # rain_wk; max sig lag = -7 (0.494)
-ccf_values_rich_MG6 # density; max sig lag = 0 (-0.409)
+ccf_values_rich_MG1 # temp_mean; max sig lag = -2 (0.773) -1 0.801
+ccf_values_rich_MG2 # temp_max; max sig lag = -2 (0.775) -1 (0.792)
+ccf_values_rich_MG3 # hum; max sig lag = 0 (-0.820) 0 (-0.883)
+ccf_values_rich_MG4 # rain; max sig lag = -6 (0.403) -5 (0.381)
+ccf_values_rich_MG5 # rain_wk; max sig lag = -7 (0.494) -7 (0.503)
+ccf_values_rich_MG6 # density; max sig lag = 0 (-0.409) 0 (-0.605)
 
 ##########
 #wide to long
@@ -1494,30 +1586,60 @@ ggplot(timeseries_long, aes(dec_dates,value))+
 
 ###### Check correlations among predictors
 
-library(corrplot)
+library(ggcorrplot)
+
+ccf_values_rich_AS1 # temp_mean; max sig lag =  0 (0.770)
+ccf_values_rich_AS2 # temp_max; max sig lag = 0 (0.790)
+ccf_values_rich_AS3 # hum; max sig lag =  0 (-0.759)
+ccf_values_rich_AS4 # rain; max sig lag = -4 (0.393)
+ccf_values_rich_AS5 # rain_wk; max sig lag = -6 (0.506)
+ccf_values_rich_AS6 # density; max sig lag = 0 (-0.203)
+
+ccf_values_rich_MG1 # temp_mean; max sig lag = -1 0.801
+ccf_values_rich_MG2 # temp_max; max sig lag = -1 (0.792)
+ccf_values_rich_MG3 # hum; max sig lag = 0 (-0.883)
+ccf_values_rich_MG4 # rain; max sig lag = -5 (0.381)
+ccf_values_rich_MG5 # rain_wk; max sig lag = -7 (0.503)
+ccf_values_rich_MG6 # density; max sig lag = 0 (-0.605)
+
+ccf_values_AS1 # temp mean; max sig lag = -7 (0.639)
+ccf_values_AS2 # temp max; max sig lag = -7 (0.629)
+ccf_values_AS3 # hum; max sig lag = -5 (0.630)
+ccf_values_AS4 # rain; max sig lag = 0 (-0.386)
+ccf_values_AS5 # rain_wk; max sig lag = 0 (-0.699)
+ccf_values_AS6 # density; max sig lag = -6 (-0.419)
+
+ccf_values_MG1 # temp mean; max sig lag = -2 (0.750)
+ccf_values_MG2 # temp max; max sig lag = -2 (0.751)
+ccf_values_MG3 # hum; max sig lag = 0 (-0.786)
+ccf_values_MG4 # rain; max sig lag = -7 (-0.404)
+ccf_values_MG5 # rain_wk; max sig lag = -7 (-0.468)
+ccf_values_MG6 # density; max sig lag = -4 (-0.720)
 
 predictor_df <- data.frame(AS_diversity = timeseries_df$AS_diversity,
                            MG_diversity = timeseries_df$MG_diversity,
                            AS_rich = timeseries_df$AS_rich,
                            MG_rich = timeseries_df$MG_rich,
+                           temp = lag(timeseries_df$temp_mean, 0),
                            temp_1 = lag(timeseries_df$temp_mean, 1),
                            temp_2 = lag(timeseries_df$temp_mean, 2),
                            temp_3 = lag(timeseries_df$temp_mean, 3),
                            temp_7 = lag(timeseries_df$temp_mean, 7),
                            hum = lag(timeseries_df$hum, 0),
                            hum_5 = lag(timeseries_df$hum, 5),
-                           rain = lag(timeseries_df$rain, 0),                           
+                           rain = lag(timeseries_df$rain, 0),    
+                           rain_4 = lag(timeseries_df$rain, 4),
                            rain_5 = lag(timeseries_df$rain, 5),
-                           rain_6 = lag(timeseries_df$rain, 6),
+                           # rain_6 = lag(timeseries_df$rain, 6),
                            rain_7 = lag(timeseries_df$rain, 7),
                            AS_density = lag(timeseries_df$AS_diversity, 0),
                            AS_density_6 = lag(timeseries_df$AS_diversity, 6), 
                            MG_density = lag(timeseries_df$MG_diversity, 0),
+                          MG_density_4 = lag(timeseries_df$MG_diversity, 4),
                            MG_density_5 = lag(timeseries_df$MG_diversity, 5))
 
 
 # Create four set of predictors corresponding to each tested model
-
 
 AS_diversity_predictors <- data.frame(temp_7 = predictor_df$temp_7, 
                                       hum_5 = predictor_df$hum_5,
@@ -1525,21 +1647,21 @@ AS_diversity_predictors <- data.frame(temp_7 = predictor_df$temp_7,
                                       AS_density_6 = predictor_df$AS_density_6)
 
 
-MG_diversity_predictors <- data.frame(temp_3 = predictor_df$temp_3, 
+MG_diversity_predictors <- data.frame(temp_2 = predictor_df$temp_2, 
                                       hum = predictor_df$hum,
                                       rain_7 = predictor_df$rain_7,
-                                      MG_density_5 = predictor_df$MG_density_5)
+                                      MG_density_4 = predictor_df$MG_density_4)
 
 
-AS_rich_predictors <- data.frame(temp_1 = predictor_df$temp_1, 
+AS_rich_predictors <- data.frame(temp = predictor_df$temp, 
                                  hum = predictor_df$hum,
-                                 rain_5 = predictor_df$rain_5,
+                                 rain_4 = predictor_df$rain_4,
                                  AS_density = predictor_df$AS_density)
 
 
-MG_rich_predictors <- data.frame(temp_2 = predictor_df$temp_2, 
+MG_rich_predictors <- data.frame(temp_1 = predictor_df$temp_1, 
                                  hum = predictor_df$hum,
-                                 rain_6 = predictor_df$rain_6,
+                                 rain_5 = predictor_df$rain_5,
                                  MG_density = predictor_df$MG_density)
 
 AS_diversity_M = cor(na.omit(AS_diversity_predictors))
@@ -1547,11 +1669,16 @@ MG_diversity_M = cor(na.omit(MG_diversity_predictors))
 AS_rich_M = cor(na.omit(AS_rich_predictors))
 MG_rich_M = cor(na.omit(MG_rich_predictors))
 
-corrplot(AS_diversity_M, method = 'number') #(rain+hum)
-corrplot(MG_diversity_M, method = 'number') #(rain+hum) + (density+temp)
-corrplot(AS_rich_M, method = 'number') # temp+hum + rain+density
-corrplot(MG_rich_M, method = 'number') # hum+density
+corr_AS_d <- ggcorrplot(AS_diversity_M, method = 'square', type = "lower", lab = TRUE) + theme_nothing() #(rain+hum)
+corr_MG_d <- ggcorrplot(MG_diversity_M, method = 'square', type = "lower", lab = TRUE) + theme_nothing() #(rain+hum) + (density+temp)
+corr_AS_r <- ggcorrplot(AS_rich_M, method = 'square', type = "lower", lab = TRUE) + theme_nothing() # temp+hum + rain+density
+corr_MG_r <-  ggcorrplot(MG_rich_M, method = 'square', type = "lower", lab = TRUE) + theme_nothing() # temp+hum + hum+density
 
+corr_AS_r  + theme_minimal()
+
+corrplot_summ <- ggarrange(corr_AS_d, corr_MG_d, corr_AS_r, corr_MG_r, labels=c("Eveness - AS", "Eveness - MG", "Richness - AS", "Richness - MG"), nrow = 2, ncol = 2, label.x = -0.1, label.y = 1)
+
+ggsave("../Wytham_rodent_manuscript/revisions/new_figures/corrplot_summary_2022-06.pdf", corrplot_summ, width = 6, height = 7)
 # AS diversity -> hum_5 and rain are correlated (-0.93)
 # temp + hum + density
 # temp + rain + density
@@ -1561,27 +1688,28 @@ corrplot(MG_rich_M, method = 'number') # hum+density
 # rain + density
 # density + hum
 
-# MG diversity -> temp_3 + density_5 correlated (0.89) and hum and rain_7 correlated (0.76)
+# MG diversity -> temp_3 + density_5 correlated (0.89) and hum and density correlated (0.7)
 # temp + hum
-# hum + density
 # temp + rain
 # rain + density
+# rain + hum
+# rain + temp + hum
 
-# AS rich -> rain and density correlated (-0.73) + temp+hum (-0.79)
+
+# AS rich -> rain and density correlated (-0.72) + temp+hum (-0.88)
 # temp + rain
 # temp + density
 # hum + density
 # rain + hum
 
 
-# MG rich -> hum and density correlated (-0.83)
-# temp + hum + rain
-# temp + density + rain
-# temp + density
+# MG rich -> hum and density correlated (-0.84) + temp+hum (-0.9)
 # temp + rain
-# temp + hum
-# hum + rain
+# temp + density
+# rain + hum
 # rain + density
+# temp + density + rain
+
 
 
 ```
@@ -1590,6 +1718,7 @@ corrplot(MG_rich_M, method = 'number') # hum+density
 
 #########
 # GLM
+
 
 AS_div_model_a <- glm(data = predictor_df, formula = AS_diversity ~ temp_7 + hum_5 + AS_density_6, family = gaussian)
 AS_div_model_b <- glm(data = predictor_df, formula = AS_diversity ~ temp_7 + rain + AS_density_6, family = gaussian)
@@ -1602,57 +1731,71 @@ AS_div_model_g <- glm(data = predictor_df, formula = AS_diversity ~ hum_5 + AS_d
 
 #MG_diversity 
 
-MG_div_model_a <- glm(data = predictor_df, formula = MG_diversity ~ temp_3 + hum, family = gaussian)
-MG_div_model_b <- glm(data = predictor_df, formula = MG_diversity ~ hum + MG_density_5, family = gaussian) ###
-MG_div_model_c <- glm(data = predictor_df, formula = MG_diversity ~ temp_3 + rain_7, family = gaussian)
-MG_div_model_d <- glm(data = predictor_df, formula = MG_diversity ~ rain_7 + MG_density_5, family = gaussian)
+MG_div_model_a <- glm(data = predictor_df, formula = MG_diversity ~ temp_2 + hum, family = gaussian)
+MG_div_model_b <- glm(data = predictor_df, formula = MG_diversity ~ temp_2 + rain, family = gaussian) ###
+MG_div_model_c <- glm(data = predictor_df, formula = MG_diversity ~ rain_7 + MG_density_4, family = gaussian)
+MG_div_model_d <- glm(data = predictor_df, formula = MG_diversity ~ rain_7 + hum, family = gaussian)
+MG_div_model_e <- glm(data = predictor_df, formula = MG_diversity ~ rain_7 + hum + temp_2, family = gaussian)
+
+# AS rich -> rain and density correlated (-0.72) + temp+hum (-0.88)
+# temp + rain
+# temp + density
+# hum + density
+# rain + hum
 
 
 #AS_rich 
 
-AS_rich_model_a <- glm(data = predictor_df, formula = AS_rich ~ temp_1 + rain_5, family = gaussian)
-AS_rich_model_b <- glm(data = predictor_df, formula = AS_rich ~ rain_5 + hum, family = gaussian) ###
-AS_rich_model_c <- glm(data = predictor_df, formula = AS_rich ~ temp_1 + AS_density, family = gaussian)
+AS_rich_model_a <- glm(data = predictor_df, formula = AS_rich ~ temp + rain_4, family = gaussian)
+AS_rich_model_b <- glm(data = predictor_df, formula = AS_rich ~ rain_4 + hum, family = gaussian) ###
+AS_rich_model_c <- glm(data = predictor_df, formula = AS_rich ~ temp + AS_density, family = gaussian)
 AS_rich_model_d <- glm(data = predictor_df, formula = AS_rich ~ hum + AS_density, family = gaussian)
 
 
+
+# MG rich -> hum and density correlated (-0.84) + temp+hum (-0.9)
+# temp + rain
+# temp + density
+# rain + hum
+# rain + density
+# temp + density + rain
+
 #MG_rich 
 
-MG_rich_model_a <- glm(data = predictor_df, formula = MG_rich ~ temp_2 + hum + rain_6, family = gaussian)
-MG_rich_model_b <- glm(data = predictor_df, formula = MG_rich ~temp_2 + MG_density + rain_6, family = gaussian) ###
-MG_rich_model_c <- glm(data = predictor_df, formula = MG_rich ~ temp_2 + MG_density, family = gaussian)
-MG_rich_model_d <- glm(data = predictor_df, formula = MG_rich ~ temp_2 + rain_6, family = gaussian)
-MG_rich_model_e <- glm(data = predictor_df, formula = MG_rich ~ temp_2 + hum, family = gaussian)
-MG_rich_model_f <- glm(data = predictor_df, formula = MG_rich ~  hum + rain_6, family = gaussian)
-MG_rich_model_g <- glm(data = predictor_df, formula = MG_rich ~  rain_6 + MG_density, family = gaussian)
+MG_rich_model_a <- glm(data = predictor_df, formula = MG_rich ~ temp_1 + rain_5, family = gaussian)
+MG_rich_model_b <- glm(data = predictor_df, formula = MG_rich ~ temp_1 + MG_density + rain_5, family = gaussian) ###
+MG_rich_model_c <- glm(data = predictor_df, formula = MG_rich ~ temp_1 + MG_density, family = gaussian)
+MG_rich_model_d <- glm(data = predictor_df, formula = MG_rich ~ rain_5 + hum, family = gaussian)
+MG_rich_model_e <- glm(data = predictor_df, formula = MG_rich ~ rain_5 + MG_density, family = gaussian)
+
 
 
 
 library(AICcmodavg)
-# AS diversity
+# AS diversity (model d) - temp + density
 AS_div_models <- list(AS_div_model_a, AS_div_model_b, 
                       AS_div_model_c, AS_div_model_d, 
                       AS_div_model_e, AS_div_model_f, AS_div_model_g)
 model.names <- c("model_a", "model_b", "model_c", "model_d", "model_e", "model_f", "model_g")
 aictab(cand.set = AS_div_models, modnames = model.names)
 
-# AS richness
+# AS richness (model c) - temp + density
 AS_rich_models <- list(AS_rich_model_a, AS_rich_model_b, 
                        AS_rich_model_c, AS_rich_model_d)
 model.names <- c("model_a", "model_b", "model_c", "model_d")
 aictab(cand.set = AS_rich_models, modnames = model.names)
 
-# MG diversity
+# MG diversity (model e) - rain + hum + temp
 MG_div_models <- list(MG_div_model_a, MG_div_model_b, 
-                       MG_div_model_c, MG_div_model_d)
-model.names <- c("model_a", "model_b", "model_c", "model_d")
+                      MG_div_model_c, MG_div_model_d, MG_div_model_e)
+model.names <- c("model_a", "model_b", "model_c", "model_d", "model_e")
 aictab(cand.set = MG_div_models, modnames = model.names)
 
-# MG richness
+# MG richness (model c) - rain + hum
 MG_rich_models <- list(MG_rich_model_a, MG_rich_model_b, 
-                      MG_rich_model_c, MG_rich_model_d, 
-                      MG_rich_model_e, MG_rich_model_f, MG_rich_model_g)
-model.names <- c("model_a", "model_b", "model_c", "model_d", "model_e", "model_f", "model_g")
+                       MG_rich_model_c, MG_rich_model_d, 
+                       MG_rich_model_e)
+model.names <- c("model_a", "model_b", "model_c", "model_d", "model_e")
 aictab(cand.set = MG_rich_models, modnames = model.names)
 
 
@@ -1664,9 +1807,9 @@ library(reghelper)
 library(ggpubr)
 
 AS_div_fit <- AS_div_model_d
-MG_div_fit <- MG_div_model_b
-AS_rich_fit <- AS_rich_model_b
-MG_rich_fit <- MG_rich_model_b
+MG_div_fit <- MG_div_model_e
+AS_rich_fit <- AS_rich_model_c
+MG_rich_fit <- MG_rich_model_c
 
 beta(AS_rich_fit)
 export_summs(AS_div_fit, MG_div_fit, AS_rich_fit, MG_rich_fit, scale = TRUE, transform.response = TRUE, error_format = "[{conf.low}, {conf.high}]")
@@ -1679,10 +1822,10 @@ sr <- plot_summs(AS_rich_fit, MG_rich_fit, scale = TRUE)  +
   scale_color_manual(values=c("#FC8D62", "#66C2A5")) + 
   scale_shape_manual(values=c("circle", "circle")) + theme_minimal()
 
-ggarrange(sd, sr, common.legend = TRUE, 
-          labels = c("Shannon diversity", "Species richness"))
+glm_plot <- ggarrange(sd, sr, common.legend = TRUE, 
+          labels = c("Evenness", "Richness"))
 
-
+# ggsave("../Wytham_rodent_manuscript/revisions/new_figures/Figure_5_glm_results_2022-06.pdf", glm_plot, width = 8, height = 4)
 ```
 
 ```{r}
@@ -1705,21 +1848,21 @@ sr_scale = scale_y_continuous(limits=c(1,4.2), breaks=seq(1.0,4.0,1.0))
 
 
 temp.p <- 
-timeseries_df %>%
+  timeseries_df %>%
   ggplot(aes(cal_date, temp_mean)) +
   geom_point() + geom_line() +
   theme_bw() + 
   xlab("Time") + ylab("Temperature") + date_scale_v1
 
 rain.p <-
-timeseries_df %>%
+  timeseries_df %>%
   ggplot(aes(cal_date, rain_wk)) +
   geom_point() + geom_line() +
   theme_bw() + 
   xlab("Time") + ylab("Rain") + date_scale_v1
 
 humidity.p <- 
-timeseries_df %>%
+  timeseries_df %>%
   ggplot(aes(cal_date, hum)) +
   geom_point() + geom_line() +
   theme_bw() + 
@@ -1774,7 +1917,7 @@ MG_sr <-
 library(lubridate)
 
 rain.p <-
-weather_weekly_combined %>%
+  weather_weekly_combined %>%
   ggplot(aes(min_date, rain_cts_cum_week*0.518)) +
   geom_point(pch = 1, colour="black")+
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cc"), se = FALSE, colour="black")+
@@ -1788,12 +1931,12 @@ weather_weekly_combined %>%
 
 weekly_temp = weather_weekly_combined[,c('week','min_date','temp_mean_daily','temp_min_daily', 'temp_max_daily')]
 wk_temp_long <- melt(weekly_temp,
-                              id.vars=c("week",'min_date'),
-                              variable.name="weather_measurement",
-                              value.name="value")
+                     id.vars=c("week",'min_date'),
+                     variable.name="weather_measurement",
+                     value.name="value")
 
 temp.p <-
-ggplot(wk_temp_long, aes(min_date, value, color= weather_measurement))+
+  ggplot(wk_temp_long, aes(min_date, value, color= weather_measurement))+
   geom_point(pch = 1)+
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cc"), se = FALSE)+
   theme_bw()+
@@ -1806,12 +1949,12 @@ ggplot(wk_temp_long, aes(min_date, value, color= weather_measurement))+
 
 weekly_hum = weather_weekly_combined[,c('week','min_date','hum_mean_daily','hum_min_daily', 'hum_max_daily')]
 wk_hum_long <- melt(weekly_hum,
-                     id.vars=c("week",'min_date'),
-                     variable.name="weather_measurement",
-                     value.name="value")
+                    id.vars=c("week",'min_date'),
+                    variable.name="weather_measurement",
+                    value.name="value")
 
 hum.p <-
-ggplot(wk_hum_long, aes(min_date, value, color= weather_measurement))+
+  ggplot(wk_hum_long, aes(min_date, value, color= weather_measurement))+
   geom_point(pch = 1)+
   geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cc"), se = FALSE)+
   theme_bw()+
@@ -1823,5 +1966,71 @@ ggplot(wk_hum_long, aes(min_date, value, color= weather_measurement))+
 library(patchwork)
 
 temp.p|hum.p|rain.p
+
+
+test.s <-
+all_virus_species.df %>%
+  group_by(Species, Interval, virus_species) %>%
+  summarise(v_count = sum(viral_read_count)) %>%
+  filter(v_count > 0) %>%
+    group_by(Species, Interval) %>%
+    summarise(n_genera = n())
+
+length(unique(all_virus_species.df$virus_species))
+
+
+  select_phage <- 
+  get_relAbundance_s(unique(c(phage_species.df$virus_species)), data) %>%
+  select(virus_species, type, Species, Interval, viral_read_count) %>% 
+  group_by(virus_species, type, Species, Interval) %>%
+  summarise(sum = sum(viral_read_count)) %>%
+  filter(sum >= 1) %>%
+  filter(virus_species != "environmental samples") %>%
+  group_by(virus_species) %>%
+  summarise(sum = sum(sum)) %>%
+  filter(sum >= 40)
+  
+    select_vert <- 
+
+  get_relAbundance_s(unique(c(verterb_virus_species.df$virus_species)), data) %>%
+  select(virus_species, type, Species, Interval, viral_read_count) %>% 
+  group_by(virus_species, type, Species, Interval) %>%
+  summarise(sum = sum(viral_read_count)) %>%
+  filter(sum >= 1) %>%
+  filter(virus_species != "environmental samples") %>%
+   group_by(virus_species) %>%
+  summarise(sum = sum(sum)) %>%
+  filter(sum >= 10)
+  
+    test.s <-
+      get_relAbundance_s(
+        unique(c(select_phage$virus_species, select_vert$virus_species)), data) %>%
+      select(virus_species, type, Species, Interval, viral_read_count) %>%
+      group_by(virus_species, type, Species, Interval) %>%
+  summarise(sum = sum(viral_read_count)) %>%
+  filter(sum >= 1) %>%
+  filter(virus_species != "environmental samples")   
+    
+    length(unique(select_phage$virus_species))
+    
+# write_csv2(test.s, "../Wytham_rodent_manuscript/revisions/summary_table_virus_genera_by_read_count_figure_3.csv")
+
+```
+
+
+```{r}
+
+host_pop_density.f <-
+MNKA %>%
+  select(Collection_date, MNKA_per_ha, Species) %>%
+  rename(Collection.date = Collection_date) %>%
+  mutate(Species = fct_relevel(Species, c("AS", "AF", "MG"))) %>%
+  ggplot(aes(as.Date(Collection.date, format = '%d/%m/%Y'), MNKA_per_ha, group = Species, colour = Species)) +
+  geom_point() + facet_grid(~Species) + geom_line() + xlab("Time") + ylab("MNKA per ha") +
+  scale_colour_manual(values=c("#66C2A5", "#8DA0CB", "#FC8D62")) + theme_minimal() + theme(legend.position = "none") +   scale_x_date(limits =c(dmy("01/11/2016"), dmy("15/12/2017")), breaks=c(dmy("01/01/2017"), dmy("01/04/2017"), dmy("01/07/2017"), dmy("01/10/2017")), date_labels = "%b")
+
+
+# ggsave(plot = host_pop_density.f, filename =  "../Wytham_rodent_manuscript/revisions/new_figures/Figure_SX_host_pop_density.pdf", width = 8, height = 4)
+#   
 
 ```
